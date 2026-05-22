@@ -42,6 +42,11 @@ function googleImageLink(vin: string) {
   return `https://www.google.com/search?q=${query}&tbm=isch`;
 }
 
+function photoSearchLink(year: number, make: string, vin: string) {
+  const q = encodeURIComponent(`${year} ${make} ${vin}`);
+  return `https://www.google.com/search?tbm=isch&q=${q}`;
+}
+
 function shortDivision(div: string): string {
   return (
     div
@@ -644,12 +649,12 @@ function VehicleScraperTab({
                           Miles
                         </button>
                         <a
-                          href={googleImageLink(vehicle.vin)}
+                          href={photoSearchLink(vehicle.year, vehicle.make, vehicle.vin)}
                           target="_blank"
                           rel="noreferrer"
-                          className="rounded bg-slate-500 px-1.5 py-0.5 text-[10px] font-black text-white transition hover:bg-slate-600"
+                          className="rounded bg-indigo-600 px-1.5 py-0.5 text-[10px] font-black text-white transition hover:bg-indigo-700"
                         >
-                          Google
+                          Photos
                         </a>
                       </div>
                     </td>
@@ -977,21 +982,27 @@ function WatchlistTab({ vehicles }: { vehicles: Vehicle[] }) {
               </span>
             </div>
           </div>
-          <div className="mt-6 grid grid-cols-2 gap-2">
+          <div className="mt-6 grid grid-cols-3 gap-2">
             <button
               onClick={() => handleCheckDmv(vehicle.vin)}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3 text-xs font-black text-white transition hover:bg-blue-700"
+              className="inline-flex items-center justify-center gap-1 rounded-2xl bg-blue-600 py-3 text-xs font-black text-white transition hover:bg-blue-700"
             >
-              {copiedVin === vehicle.vin ? "VIN Copied! 📋" : "Check DMV"}
-              {copiedVin !== vehicle.vin && <ArrowUpRight size={14} />}
+              {copiedVin === vehicle.vin ? "✓" : "DMV"}
             </button>
             <button
               onClick={() => handleCheckMiles(vehicle.vin)}
-              className="inline-flex items-center justify-center gap-2 rounded-2xl bg-orange-500 py-3 text-xs font-black text-white transition hover:bg-orange-600"
+              className="inline-flex items-center justify-center gap-1 rounded-2xl bg-orange-500 py-3 text-xs font-black text-white transition hover:bg-orange-600"
             >
-              Check Miles
-              <ArrowUpRight size={14} />
+              Miles
             </button>
+            <a
+              href={photoSearchLink(vehicle.year, vehicle.make, vehicle.vin)}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center gap-1 rounded-2xl bg-indigo-600 py-3 text-xs font-black text-white transition hover:bg-indigo-700"
+            >
+              Photos
+            </a>
           </div>
         </article>
       ))}
