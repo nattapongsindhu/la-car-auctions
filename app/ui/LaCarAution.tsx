@@ -29,6 +29,9 @@ type Vehicle = {
   division: string;
 };
 
+type SortKey = "year" | "make" | "model";
+type SortDirection = "asc" | "desc";
+
 const tabs: Array<{ id: TabId; label: string }> = [
   {
     id: "dashboard",
@@ -114,8 +117,6 @@ function parseOpgHtmlTable(source: string): Vehicle[] {
 
 export default function LaCarAution() {
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
-  const [query, setQuery] = useState("");
-  const [division, setDivision] = useState("All Divisions");
   const [vinInput, setVinInput] = useState("1FTFW1ET3CFA77102");
   const [monthsLate, setMonthsLate] = useState(8);
   const [baseFee, setBaseFee] = useState(276);
@@ -158,30 +159,6 @@ export default function LaCarAution() {
       isMounted = false;
     };
   }, []);
-
-  const filteredVehicles = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-
-    return vehicles.filter((vehicle) => {
-      const matchesQuery = `${vehicle.make} ${vehicle.model}`
-        .toLowerCase()
-        .includes(normalizedQuery);
-      const matchesDivision =
-        division === "All Divisions" || vehicle.division === division;
-
-      return matchesQuery && matchesDivision;
-    });
-  }, [division, query, vehicles]);
-
-  const divisions = useMemo(
-    () => [
-      "All Divisions",
-      ...Array.from(new Set(vehicles.map((vehicle) => vehicle.division)))
-        .filter(Boolean)
-        .sort(),
-    ],
-    [vehicles],
-  );
 
   const averageYear = useMemo(() => {
     const validYears = vehicles
@@ -250,15 +227,10 @@ export default function LaCarAution() {
         )}
         {activeTab === "scraper" && (
           <VehicleScraperTab
-            division={division}
-            divisions={divisions}
-            filteredVehicles={filteredVehicles}
             isLoadingVehicles={isLoadingVehicles}
-            query={query}
             scrapeError={scrapeError}
-            setDivision={setDivision}
-            setQuery={setQuery}
             setVehicles={setVehicles}
+            vehicles={vehicles}
           />
         )}
         {activeTab === "history" && (
@@ -431,39 +403,98 @@ function MiniLineChart() {
 }
 
 function VehicleScraperTab({
-  division,
-  divisions,
-  filteredVehicles,
   isLoadingVehicles,
-  query,
   scrapeError,
-  setDivision,
-  setQuery,
   setVehicles,
+  vehicles,
 }: {
-  division: string;
-  divisions: string[];
-  filteredVehicles: Vehicle[];
   isLoadingVehicles: boolean;
-  query: string;
   scrapeError: string;
-  setDivision: (value: string) => void;
-  setQuery: (value: string) => void;
   setVehicles: (vehicles: Vehicle[]) => void;
+  vehicles: Vehicle[];
 }) {
   const [htmlSource, setHtmlSource] = useState("");
   const [syncMessage, setSyncMessage] = useState("");
+  const [query, setQuery] = useState("");
+  const [yearFilter, setYearFilter] = useState("All Years");
+  const [makeFilter, setMakeFilter] = useState("All Makes");
+  const [divisionFilter, setDivisionFilter] = useState("All Divisions");
+  const [sortKey, setSortKey] = useState<SortKey>("year");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+
+  const years = useMemo(
+    () =>
+      Array.from(new Set(vehicles.map((vehicle) => vehicle.year).filter(Boolean)))
+        .sort((a, b) => b - a)
+        .map(String),
+    [vehicles],
+  );
+  const makes = useMemo(
+    () =>
+      Array.from(new Set(vehicles.map((vehicle) => vehicle.make).filter(Boolean)))
+        .sort((a, b) => a.localeCompare(b)),
+    [vehicles],
+  );
+  const divisions = useMemo(
+    () =>
+      Array.from(new Set(vehicles.map((vehicle) => vehicle.division).filter(Boolean)))
+        .sort((a, b) => a.localeCompare(b)),
+    [vehicles],
+  );
+
+  const filteredVehicles = useMemo(() => {
+    const normalizedQuery = query.trim().toLowerCase();
+
+    return vehicles.filter((car) => {
+      const matchSearch =
+        normalizedQuery.length === 0 ||
+        car.make.toLowerCase().includes(normalizedQuery) ||
+        car.model.toLowerCase().includes(normalizedQuery);
+      const matchYear =
+        yearFilter === "All Years" || String(car.year) === yearFilter;
+      const matchMake =
+        makeFilter === "All Makes" || car.make === makeFilter;
+      const matchDivision =
+        divisionFilter === "All Divisions" || car.division === divisionFilter;
+
+      return matchSearch && matchYear && matchMake && matchDivision;
+    });
+  }, [divisionFilter, makeFilter, query, vehicles, yearFilter]);
+
+  const sortedVehicles = useMemo(() => {
+    return [...filteredVehicles].sort((a, b) => {
+      const multiplier = sortDirection === "asc" ? 1 : -1;
+
+      if (sortKey === "year") {
+        return ((a.year || 0) - (b.year || 0)) * multiplier;
+      }
+
+      return a[sortKey].localeCompare(b[sortKey]) * multiplier;
+    });
+  }, [filteredVehicles, sortDirection, sortKey]);
 
   function synchronizeLiveProductionData() {
     const parsedVehicles = parseOpgHtmlTable(htmlSource);
 
     setVehicles(parsedVehicles);
-    setDivision("All Divisions");
+    setYearFilter("All Years");
+    setMakeFilter("All Makes");
+    setDivisionFilter("All Divisions");
     setSyncMessage(
       parsedVehicles.length > 0
         ? `Synchronized ${parsedVehicles.length} vehicles.`
         : "No vehicles found. Confirm the pasted HTML includes table body rows.",
     );
+  }
+
+  function handleSort(nextSortKey: SortKey) {
+    if (sortKey === nextSortKey) {
+      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+      return;
+    }
+
+    setSortKey(nextSortKey);
+    setSortDirection(nextSortKey === "year" ? "desc" : "asc");
   }
 
   return (
@@ -505,8 +536,11 @@ function VehicleScraperTab({
             LA Car Aution
           </p>
         </div>
-        <div className="grid gap-3 sm:grid-cols-[minmax(220px,1fr)_190px]">
-          <label className="flex h-12 items-center gap-3 rounded-2xl border border-slate-100 bg-slate-50 px-4 dark:border-slate-800 dark:bg-slate-950">
+      </div>
+
+      <div className="mt-8 rounded-3xl border border-slate-100 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-950/70">
+        <div className="grid gap-3 lg:grid-cols-[minmax(260px,1.35fr)_minmax(150px,0.8fr)_minmax(170px,0.9fr)_minmax(220px,1fr)]">
+          <label className="flex min-h-14 items-center gap-3 rounded-2xl border border-slate-100 bg-white px-4 dark:border-slate-800 dark:bg-slate-900">
             <Search size={18} className="text-slate-400" />
             <input
               value={query}
@@ -516,28 +550,73 @@ function VehicleScraperTab({
             />
           </label>
           <select
-            value={division}
-            onChange={(event) => setDivision(event.target.value)}
-            className="h-12 rounded-2xl border border-slate-100 bg-slate-50 px-4 text-sm font-bold outline-none dark:border-slate-800 dark:bg-slate-950"
+            value={yearFilter}
+            onChange={(event) => setYearFilter(event.target.value)}
+            className="min-h-14 rounded-2xl border border-slate-100 bg-white px-4 text-sm font-bold outline-none dark:border-slate-800 dark:bg-slate-900"
           >
+            <option>All Years</option>
+            {years.map((year) => (
+              <option key={year}>{year}</option>
+            ))}
+          </select>
+          <select
+            value={makeFilter}
+            onChange={(event) => setMakeFilter(event.target.value)}
+            className="min-h-14 rounded-2xl border border-slate-100 bg-white px-4 text-sm font-bold outline-none dark:border-slate-800 dark:bg-slate-900"
+          >
+            <option>All Makes</option>
+            {makes.map((make) => (
+              <option key={make}>{make}</option>
+            ))}
+          </select>
+          <select
+            value={divisionFilter}
+            onChange={(event) => setDivisionFilter(event.target.value)}
+            className="min-h-14 rounded-2xl border border-slate-100 bg-white px-4 text-sm font-bold outline-none dark:border-slate-800 dark:bg-slate-900"
+          >
+            <option>All Divisions</option>
             {divisions.map((item) => (
               <option key={item}>{item}</option>
             ))}
           </select>
         </div>
+        <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+          Showing <strong className="text-slate-950 dark:text-white">{filteredVehicles.length}</strong> out of{" "}
+          <strong className="text-slate-950 dark:text-white">{vehicles.length}</strong> available auction vehicles
+        </p>
       </div>
 
       <div className="mt-8 overflow-x-auto rounded-3xl border border-slate-100 dark:border-slate-800">
         <table className="min-w-[900px] w-full border-collapse text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-[0.18em] text-slate-400 dark:bg-slate-950">
             <tr>
-              {["Year", "Make", "Model", "VIN", "OPG Division", "Actions"].map(
-                (header) => (
-                  <th key={header} className="px-6 py-5 font-black">
-                    {header}
-                  </th>
-                ),
-              )}
+              <th className="px-6 py-5 font-black">
+                <SortHeader
+                  active={sortKey === "year"}
+                  direction={sortDirection}
+                  label="Year"
+                  onClick={() => handleSort("year")}
+                />
+              </th>
+              <th className="px-6 py-5 font-black">
+                <SortHeader
+                  active={sortKey === "make"}
+                  direction={sortDirection}
+                  label="Make"
+                  onClick={() => handleSort("make")}
+                />
+              </th>
+              <th className="px-6 py-5 font-black">
+                <SortHeader
+                  active={sortKey === "model"}
+                  direction={sortDirection}
+                  label="Model"
+                  onClick={() => handleSort("model")}
+                />
+              </th>
+              <th className="px-6 py-5 font-black">VIN</th>
+              <th className="px-6 py-5 font-black">OPG Division</th>
+              <th className="px-6 py-5 font-black">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -550,7 +629,7 @@ function VehicleScraperTab({
                 </tr>
               ))}
 
-            {!isLoadingVehicles && filteredVehicles.map((vehicle) => (
+            {!isLoadingVehicles && sortedVehicles.map((vehicle) => (
               <tr key={vehicle.vin} className="align-middle">
                 <td className="px-6 py-5 font-black">{vehicle.year || "N/A"}</td>
                 <td className="px-6 py-5 font-bold">{vehicle.make}</td>
@@ -584,14 +663,16 @@ function VehicleScraperTab({
               </tr>
             ))}
 
-            {!isLoadingVehicles && filteredVehicles.length === 0 && (
+            {!isLoadingVehicles && sortedVehicles.length === 0 && (
               <tr>
                 <td className="px-6 py-12 text-center" colSpan={6}>
                   <p className="font-black text-slate-700 dark:text-slate-200">
-                    No live OPG vehicles found.
+                    {vehicles.length > 0
+                      ? "No vehicles match your active filtering criteria. Try resetting a dropdown option."
+                      : "No live OPG vehicles found."}
                   </p>
                   <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-                    {scrapeError || "Try changing the search or division filter."}
+                    {scrapeError || "Paste OPG table HTML or adjust your filters."}
                   </p>
                 </td>
               </tr>
@@ -600,6 +681,31 @@ function VehicleScraperTab({
         </table>
       </div>
     </section>
+  );
+}
+
+function SortHeader({
+  active,
+  direction,
+  label,
+  onClick,
+}: {
+  active: boolean;
+  direction: SortDirection;
+  label: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex items-center gap-2 text-xs font-black uppercase tracking-[0.18em] text-slate-400 transition hover:text-blue-600 dark:hover:text-blue-300"
+    >
+      {label}
+      <span className={active ? "text-blue-600 dark:text-blue-300" : "text-slate-300"}>
+        {active ? (direction === "asc" ? "↑" : "↓") : "↕"}
+      </span>
+    </button>
   );
 }
 
