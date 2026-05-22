@@ -490,6 +490,18 @@ function VehicleScraperTab({
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [hideHighRisk, setHideHighRisk] = useState(false);
   const [riskFilter, setRiskFilter] = useState("All Risk Categories");
+  const [copiedVin, setCopiedVin] = useState<string | null>(null);
+
+  async function handleCheckDmv(vin: string) {
+    try {
+      await navigator.clipboard.writeText(vin);
+      setCopiedVin(vin);
+      setTimeout(() => setCopiedVin(null), 2000);
+    } catch {
+      // clipboard blocked — still open DMV tab
+    }
+    window.open("https://www.dmv.ca.gov/wasapp/FeeCalculatorWeb/feeRequest.do", "_blank", "noopener,noreferrer");
+  }
 
   const years = useMemo(
     () =>
@@ -754,16 +766,13 @@ function VehicleScraperTab({
                     </td>
                     <td className="px-6 py-5">
                       <div className="flex items-center gap-3">
-                        <a
-                          href={googleImageLink(vehicle.vin)}
-                          target="_blank"
-                          rel="noreferrer"
+                        <button
+                          onClick={() => handleCheckDmv(vehicle.vin)}
                           className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-xs font-black text-white transition hover:bg-blue-700"
                         >
-                          Deep Link
-                          <ArrowUpRight size={14} />
-                        </a>
-                        <span className="text-xs font-bold text-slate-400">Live OPG</span>
+                          {copiedVin === vehicle.vin ? "VIN Copied! 📋" : "Check DMV"}
+                          {copiedVin !== vehicle.vin && <ArrowUpRight size={14} />}
+                        </button>
                       </div>
                     </td>
                   </tr>
@@ -1013,6 +1022,19 @@ function FeeRow({ label, value }: { label: string; value: number }) {
 }
 
 function WatchlistTab({ vehicles }: { vehicles: Vehicle[] }) {
+  const [copiedVin, setCopiedVin] = useState<string | null>(null);
+
+  async function handleCheckDmv(vin: string) {
+    try {
+      await navigator.clipboard.writeText(vin);
+      setCopiedVin(vin);
+      setTimeout(() => setCopiedVin(null), 2000);
+    } catch {
+      // clipboard blocked — still open DMV tab
+    }
+    window.open("https://www.dmv.ca.gov/wasapp/FeeCalculatorWeb/feeRequest.do", "_blank", "noopener,noreferrer");
+  }
+
   const watched = useMemo(
     () => vehicles.filter((v) => assessRisk(v).status === "clean").slice(0, 3),
     [vehicles],
@@ -1065,15 +1087,13 @@ function WatchlistTab({ vehicles }: { vehicles: Vehicle[] }) {
               </span>
             </div>
           </div>
-          <a
-            href={googleImageLink(vehicle.vin)}
-            target="_blank"
-            rel="noreferrer"
+          <button
+            onClick={() => handleCheckDmv(vehicle.vin)}
             className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3 text-xs font-black text-white transition hover:bg-blue-700"
           >
-            Deep Link Search
-            <ArrowUpRight size={14} />
-          </a>
+            {copiedVin === vehicle.vin ? "VIN Copied! 📋" : "Check DMV"}
+            {copiedVin !== vehicle.vin && <ArrowUpRight size={14} />}
+          </button>
         </article>
       ))}
     </section>
