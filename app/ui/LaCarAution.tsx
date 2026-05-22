@@ -63,6 +63,55 @@ function googleImageLink(vin: string) {
   return `https://www.google.com/search?q=${query}&tbm=isch`;
 }
 
+function normalizeCellText(value: string) {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function extractCleanVin(value: string) {
+  return (
+    value
+      .toUpperCase()
+      .replace(/[^A-Z0-9]/g, " ")
+      .match(/\b[A-HJ-NPR-Z0-9]{17}\b/)?.[0] ?? ""
+  );
+}
+
+function parseOpgHtmlTable(source: string): Vehicle[] {
+  const document = new DOMParser().parseFromString(source, "text/html");
+  const rows = Array.from(document.querySelectorAll("tr"));
+  const vehicles = new Map<string, Vehicle>();
+
+  for (const row of rows) {
+    const cells = Array.from(row.querySelectorAll("td"));
+    if (cells.length < 7) {
+      continue;
+    }
+
+    const make = normalizeCellText(cells[0]?.textContent ?? "");
+    const model = normalizeCellText(cells[1]?.textContent ?? "");
+    const year = Number(
+      normalizeCellText(cells[4]?.textContent ?? "").match(/\b(19[5-9]\d|20[0-3]\d)\b/)?.[0] ??
+        0,
+    );
+    const vin = extractCleanVin(cells[5]?.textContent ?? "");
+    const division = normalizeCellText(cells[6]?.textContent ?? "");
+
+    if (!vin || !make || !model) {
+      continue;
+    }
+
+    vehicles.set(vin, {
+      year,
+      make,
+      model,
+      vin,
+      division: division || "Unknown",
+    });
+  }
+
+  return Array.from(vehicles.values());
+}
+
 export default function LaCarAution() {
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const [query, setQuery] = useState("");
@@ -209,6 +258,7 @@ export default function LaCarAution() {
             scrapeError={scrapeError}
             setDivision={setDivision}
             setQuery={setQuery}
+            setVehicles={setVehicles}
           />
         )}
         {activeTab === "history" && (
@@ -389,6 +439,7 @@ function VehicleScraperTab({
   scrapeError,
   setDivision,
   setQuery,
+  setVehicles,
 }: {
   division: string;
   divisions: string[];
@@ -398,9 +449,55 @@ function VehicleScraperTab({
   scrapeError: string;
   setDivision: (value: string) => void;
   setQuery: (value: string) => void;
+  setVehicles: (vehicles: Vehicle[]) => void;
 }) {
+  const [htmlSource, setHtmlSource] = useState("");
+  const [syncMessage, setSyncMessage] = useState("");
+
+  function synchronizeLiveProductionData() {
+    const parsedVehicles = parseOpgHtmlTable(htmlSource);
+
+    setVehicles(parsedVehicles);
+    setDivision("All Divisions");
+    setSyncMessage(
+      parsedVehicles.length > 0
+        ? `Synchronized ${parsedVehicles.length} vehicles.`
+        : "No vehicles found. Confirm the pasted HTML includes table body rows.",
+    );
+  }
+
   return (
     <section className="rounded-3xl border border-slate-100 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900 sm:p-8">
+      <div className="mb-8 rounded-3xl border border-blue-100 bg-blue-50/60 p-6 dark:border-blue-500/20 dark:bg-blue-500/10">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+          <div>
+            <h2 className="text-xl font-black">OPG Live Feed Synchronizer</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+              Paste the raw auction table HTML, then synchronize it into the
+              dashboard, filters, watchlist, and VIN deep links.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={synchronizeLiveProductionData}
+            className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-blue-600 px-5 text-sm font-black text-white shadow-sm transition hover:bg-blue-700"
+          >
+            Synchronize Live Production Data
+          </button>
+        </div>
+        <textarea
+          value={htmlSource}
+          onChange={(event) => setHtmlSource(event.target.value)}
+          placeholder="Paste raw <table> or <tbody> HTML source code from Next Week Auctions page here..."
+          className="mt-5 min-h-40 w-full resize-y rounded-3xl border border-blue-100 bg-white p-5 font-mono text-sm leading-6 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-300 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200"
+        />
+        {syncMessage && (
+          <p className="mt-3 text-sm font-bold text-blue-700 dark:text-blue-300">
+            {syncMessage}
+          </p>
+        )}
+      </div>
+
       <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <h2 className="text-2xl font-black">Vehicle Scraper</h2>
