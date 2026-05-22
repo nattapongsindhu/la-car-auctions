@@ -11,6 +11,7 @@ import {
   FileSearch,
   Moon,
   Search,
+  Shield,
   ShieldAlert,
   ShieldCheck,
   Star,
@@ -34,7 +35,7 @@ type SortKey = "year" | "make" | "model";
 type SortDirection = "asc" | "desc";
 
 type RiskResult = {
-  status: "clean" | "high";
+  status: "clean" | "high" | "standard";
   dmvFee: number;
   reasons: string[];
 };
@@ -42,7 +43,7 @@ type RiskResult = {
 const CURRENT_YEAR = 2026;
 const STORAGE_KEY = "opg-vehicles";
 const EUROPEAN_PREFIXES = ["BMW", "MERC", "AUDI", "VOLK", "JAGU", "LAND"];
-const JAPANESE_BRANDS = ["TOYOTA", "HONDA", "NISSAN", "MAZDA"];
+const CLEAN_MAKES = ["TOYT", "TOYOTA", "HOND", "HONDA", "NISS", "NISSAN", "MAZD", "MAZDA", "FORD", "CHEV"];
 
 const tabs: Array<{ id: TabId; label: string }> = [
   { id: "dashboard", label: "Dashboard" },
@@ -77,7 +78,8 @@ function extractCleanVin(value: string) {
 }
 
 function computeDmvFee(year: number): number {
-  if (!year) return 0;
+  if (!year || isNaN(year)) return 500;
+  if (year >= CURRENT_YEAR) return 200;
   return (CURRENT_YEAR - year) * 150 + 200;
 }
 
@@ -85,9 +87,10 @@ function assessRisk(vehicle: Vehicle): RiskResult {
   const dmvFee = computeDmvFee(vehicle.year);
   const makeUpper = vehicle.make.toUpperCase();
 
+  // State 1: Red — pre-2005, European brand, or DMV est. > $1,500
   const isOld = vehicle.year > 0 && vehicle.year < 2005;
   const isEuropean = EUROPEAN_PREFIXES.some((p) => makeUpper.startsWith(p));
-  const feesTooHigh = dmvFee > 1000;
+  const feesTooHigh = dmvFee > 1500;
 
   if (isOld || isEuropean || feesTooHigh) {
     const reasons: string[] = [];
@@ -97,12 +100,16 @@ function assessRisk(vehicle: Vehicle): RiskResult {
     return { status: "high", dmvFee, reasons };
   }
 
-  const isJapanese = JAPANESE_BRANDS.some((b) => b.startsWith(makeUpper) || makeUpper.startsWith(b));
-  if (isJapanese && vehicle.year >= 2008 && dmvFee < 500) {
+  // State 2: Green — reliable everyday make, year >= 2012, DMV < $1,000
+  const isCleanMake = CLEAN_MAKES.some(
+    (m) => makeUpper === m || makeUpper.startsWith(m) || m.startsWith(makeUpper),
+  );
+  if (isCleanMake && vehicle.year >= 2012 && dmvFee < 1000) {
     return { status: "clean", dmvFee, reasons: [] };
   }
 
-  return { status: "high", dmvFee, reasons: ["Not a verified clean candidate"] };
+  // State 3: Grey — standard inspection
+  return { status: "standard", dmvFee, reasons: [] };
 }
 
 function parseOpgPlainText(source: string): Vehicle[] {
@@ -765,19 +772,33 @@ function VehicleScraperTab({
 function RiskBadge({ risk }: { risk: RiskResult }) {
   if (risk.status === "clean") {
     return (
-      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-black text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-black text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300"
+        title={`Low-Fee Everyday Driver ($${risk.dmvFee.toLocaleString()})`}
+      >
         <ShieldCheck size={12} />
         CLEAN CANDIDATE
       </span>
     );
   }
+  if (risk.status === "high") {
+    return (
+      <span
+        className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1.5 text-xs font-black text-rose-700 dark:bg-rose-500/20 dark:text-rose-300"
+        title={`Flagged due to Age, Euro Make, or High Fees ($${risk.dmvFee.toLocaleString()})`}
+      >
+        <ShieldAlert size={12} />
+        HIGH RISK: EXCEEDS LIMITS
+      </span>
+    );
+  }
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1.5 text-xs font-black text-rose-700 dark:bg-rose-500/20 dark:text-rose-300"
-      title={risk.reasons.join(" · ")}
+      className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-500 dark:bg-slate-800 dark:text-slate-400"
+      title={`Review history normally ($${risk.dmvFee.toLocaleString()})`}
     >
-      <ShieldAlert size={12} />
-      HIGH RISK: EXCEEDS LIMITS
+      <Shield size={12} />
+      STANDARD INSPECTION
     </span>
   );
 }
