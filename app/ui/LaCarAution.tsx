@@ -123,7 +123,7 @@ function googleImageLink(vin: string) {
   return `https://www.google.com/search?q=${query}&tbm=isch`;
 }
 
-export function LaCarAution() {
+export default function LaCarAution() {
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const [query, setQuery] = useState("");
   const [division, setDivision] = useState("All Divisions");

@@ -1,5 +1,5 @@
-import { LaCarAution } from "./ui/LaCarAution";
+import LaCarAution from './ui/LaCarAution';
 
-export default function Home() {
+export default function Page() {
   return <LaCarAution />;
 }
