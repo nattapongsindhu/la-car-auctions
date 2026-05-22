@@ -245,6 +245,15 @@ export default function LaCarAution() {
               <p className="mt-4 max-w-2xl text-base leading-7 text-slate-500 dark:text-slate-400">
                 Official LA Car Aution Platform
               </p>
+              <a
+                href="http://opgla.com/Auctions"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-flex items-center gap-1 text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
+              >
+                opgla.com/Auctions
+                <ArrowUpRight size={14} />
+              </a>
             </div>
             <ThemeToggle />
           </div>
@@ -480,6 +489,7 @@ function VehicleScraperTab({
   const [sortKey, setSortKey] = useState<SortKey>("year");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [hideHighRisk, setHideHighRisk] = useState(false);
+  const [riskFilter, setRiskFilter] = useState("All Risk Categories");
 
   const years = useMemo(
     () =>
@@ -506,17 +516,19 @@ function VehicleScraperTab({
   const filteredVehicles = useMemo(() => {
     const q = query.trim().toLowerCase();
     return vehicles.filter((car) => {
-      if (hideHighRisk && assessRisk(car).status === "high") return false;
+      const risk = assessRisk(car);
+      if (hideHighRisk && risk.status === "high") return false;
+      if (riskFilter !== "All Risk Categories" && risk.status !== riskFilter) return false;
       const matchSearch =
         q.length === 0 ||
         car.make.toLowerCase().includes(q) ||
         car.model.toLowerCase().includes(q);
-      const matchYear = yearFilter === "All Years" || String(car.year) === yearFilter;
+      const matchYear = yearFilter === "All Years" || car.year >= Number(yearFilter);
       const matchMake = makeFilter === "All Makes" || car.make === makeFilter;
       const matchDivision = divisionFilter === "All Divisions" || car.division === divisionFilter;
       return matchSearch && matchYear && matchMake && matchDivision;
     });
-  }, [divisionFilter, hideHighRisk, makeFilter, query, vehicles, yearFilter]);
+  }, [divisionFilter, hideHighRisk, makeFilter, query, riskFilter, vehicles, yearFilter]);
 
   const sortedVehicles = useMemo(() => {
     return [...filteredVehicles].sort((a, b) => {
@@ -597,7 +609,7 @@ function VehicleScraperTab({
 
       {/* Filter Bar */}
       <div className="rounded-3xl border border-slate-100 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-950/70">
-        <div className="grid gap-3 lg:grid-cols-[minmax(260px,1.35fr)_minmax(150px,0.8fr)_minmax(170px,0.9fr)_minmax(220px,1fr)]">
+        <div className="grid gap-3 lg:grid-cols-[minmax(220px,1.3fr)_minmax(160px,0.85fr)_minmax(150px,0.75fr)_minmax(190px,0.9fr)_minmax(190px,0.9fr)]">
           <label className="flex min-h-14 items-center gap-3 rounded-2xl border border-slate-100 bg-white px-4 dark:border-slate-800 dark:bg-slate-900">
             <Search size={18} className="text-slate-400" />
             <input
@@ -612,9 +624,9 @@ function VehicleScraperTab({
             onChange={(e) => setYearFilter(e.target.value)}
             className="min-h-14 rounded-2xl border border-slate-100 bg-white px-4 text-sm font-bold outline-none dark:border-slate-800 dark:bg-slate-900"
           >
-            <option>All Years</option>
+            <option value="All Years">Year or Newer (Minimum)</option>
             {years.map((y) => (
-              <option key={y}>{y}</option>
+              <option key={y} value={y}>{y}+</option>
             ))}
           </select>
           <select
@@ -636,6 +648,16 @@ function VehicleScraperTab({
             {divisions.map((d) => (
               <option key={d}>{d}</option>
             ))}
+          </select>
+          <select
+            value={riskFilter}
+            onChange={(e) => setRiskFilter(e.target.value)}
+            className="min-h-14 rounded-2xl border border-slate-100 bg-white px-4 text-sm font-bold outline-none dark:border-slate-800 dark:bg-slate-900"
+          >
+            <option value="All Risk Categories">All Risk Categories</option>
+            <option value="clean">Clean Candidates Only</option>
+            <option value="standard">Standard Inspection Only</option>
+            <option value="high">High Risk Only</option>
           </select>
         </div>
 
@@ -723,7 +745,7 @@ function VehicleScraperTab({
                       {vehicle.model}
                     </td>
                     <td className="px-6 py-5 font-mono text-xs font-bold text-slate-500">
-                      {maskVin(vehicle.vin)}
+                      {vehicle.vin}
                     </td>
                     <td className="px-6 py-5">
                       <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600 dark:bg-slate-800 dark:text-slate-300">
@@ -1026,7 +1048,7 @@ function WatchlistTab({ vehicles }: { vehicles: Vehicle[] }) {
           <h2 className="text-xl font-black">
             {vehicle.year} {vehicle.make} {vehicle.model}
           </h2>
-          <p className="mt-2 font-mono text-xs font-bold text-slate-400">{maskVin(vehicle.vin)}</p>
+          <p className="mt-2 font-mono text-xs font-bold text-slate-400">{vehicle.vin}</p>
           <div className="mt-6 grid gap-3 text-sm">
             <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-300">
               <CheckCircle2 size={16} />
