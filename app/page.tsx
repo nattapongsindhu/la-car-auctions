@@ -1,5 +1,5 @@
-import { GrantsDashboard } from "./ui/GrantsDashboard";
+import { CarAuctionIntel } from "./ui/CarAuctionIntel";
 
 export default function Home() {
-  return <GrantsDashboard />;
+  return <CarAuctionIntel />;
 }
