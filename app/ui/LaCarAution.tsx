@@ -105,6 +105,46 @@ function assessRisk(vehicle: Vehicle): RiskResult {
   return { status: "high", dmvFee, reasons: ["Not a verified clean candidate"] };
 }
 
+function parseOpgPlainText(source: string): Vehicle[] {
+  const vehicles = new Map<string, Vehicle>();
+
+  for (const rawLine of source.split("\n")) {
+    const line = rawLine.trim();
+    if (!line) continue;
+
+    const vinMatch = line.match(/\b[A-HJ-NPR-Z0-9]{17}\b/);
+    if (!vinMatch) continue;
+    const vin = vinMatch[0];
+
+    const vinIdx = line.indexOf(vin);
+    const before = line.slice(0, vinIdx).trim();
+    const after = line.slice(vinIdx + vin.length).trim();
+
+    const beforeWords = before.split(/\s+/);
+    if (beforeWords.length < 2) continue;
+
+    const make = beforeWords[0];
+    const model = beforeWords[1];
+    const yearMatch = before.match(/\b(19\d{2}|20\d{2})\b/);
+    const year = yearMatch ? parseInt(yearMatch[0], 10) : 0;
+
+    const afterNoDate = after.replace(/\s*\d{1,2}\/\d{1,2}\/\d{4}.*$/, "").trim();
+    const divisionMatch = afterNoDate.match(/^(.*?)\s+\d{2,5}\s+[A-Za-z]/);
+    const division = divisionMatch ? divisionMatch[1].trim() : afterNoDate;
+
+    if (!vin || !make || !model) continue;
+    vehicles.set(vin, { year, make, model, vin, division: division || "Unknown" });
+  }
+
+  return Array.from(vehicles.values());
+}
+
+function parseOpgData(source: string): Vehicle[] {
+  return /<tr|<td/i.test(source)
+    ? parseOpgHtmlTable(source)
+    : parseOpgPlainText(source);
+}
+
 function parseOpgHtmlTable(source: string): Vehicle[] {
   const normalized = source.trim();
   const wrapped = /<table[\s>]/i.test(normalized)
@@ -469,7 +509,7 @@ function VehicleScraperTab({
   }, [filteredVehicles, sortDirection, sortKey]);
 
   function synchronizeLiveProductionData() {
-    const parsed = parseOpgHtmlTable(htmlSource);
+    const parsed = parseOpgData(htmlSource);
     setVehicles(parsed);
     setYearFilter("All Years");
     setMakeFilter("All Makes");
