@@ -109,31 +109,37 @@ function parseOpgPlainText(source: string): Vehicle[] {
   const vehicles = new Map<string, Vehicle>();
 
   for (const rawLine of source.split("\n")) {
-    const line = rawLine.trim();
-    if (!line) continue;
+    try {
+      const line = rawLine.replace(/[\t\r]+/g, " ").replace(/\s{2,}/g, " ").trim();
+      if (!line) continue;
 
-    const vinMatch = line.match(/\b[A-HJ-NPR-Z0-9]{17}\b/);
-    if (!vinMatch) continue;
-    const vin = vinMatch[0];
+      const vinMatch = line.match(/[A-HJ-NPR-Z0-9]{17}/i);
+      if (!vinMatch) continue;
+      const vin = vinMatch[0].toUpperCase();
 
-    const vinIdx = line.indexOf(vin);
-    const before = line.slice(0, vinIdx).trim();
-    const after = line.slice(vinIdx + vin.length).trim();
+      const vinIdx = line.indexOf(vinMatch[0]);
+      const before = line.slice(0, vinIdx).trim();
+      const after = line.slice(vinIdx + vinMatch[0].length).trim();
 
-    const beforeWords = before.split(/\s+/);
-    if (beforeWords.length < 2) continue;
+      const beforeWords = before.split(/\s+/).filter(Boolean);
+      if (beforeWords.length < 2) continue;
 
-    const make = beforeWords[0];
-    const model = beforeWords[1];
-    const yearMatch = before.match(/\b(19\d{2}|20\d{2})\b/);
-    const year = yearMatch ? parseInt(yearMatch[0], 10) : 0;
+      const make = beforeWords[0];
+      const model = beforeWords[1];
+      const yearMatch = before.match(/\b(19\d{2}|20\d{2})\b/);
+      const year = yearMatch ? parseInt(yearMatch[0], 10) : 0;
 
-    const afterNoDate = after.replace(/\s*\d{1,2}\/\d{1,2}\/\d{4}.*$/, "").trim();
-    const divisionMatch = afterNoDate.match(/^(.*?)\s+\d{2,5}\s+[A-Za-z]/);
-    const division = divisionMatch ? divisionMatch[1].trim() : afterNoDate;
+      const afterNoDate = after.replace(/\s*\d{1,2}\/\d{1,2}\/\d{4}.*$/, "").trim();
+      const addressMatch = afterNoDate.match(/^(.*?)\s+\d{2,5}\s+[A-Za-z]/);
+      const division = addressMatch
+        ? addressMatch[1].trim()
+        : afterNoDate.split(/\s+/).slice(0, 4).join(" ").trim();
 
-    if (!vin || !make || !model) continue;
-    vehicles.set(vin, { year, make, model, vin, division: division || "Unknown" });
+      if (!vin || !make || !model) continue;
+      vehicles.set(vin, { year, make, model, vin, division: division || "Unknown" });
+    } catch {
+      continue;
+    }
   }
 
   return Array.from(vehicles.values());
