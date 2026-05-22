@@ -120,15 +120,13 @@ function parseOpgHtmlTable(source: string): Vehicle[] {
 
     const make = normalizeCellText(cells[0]?.textContent ?? "");
     const model = normalizeCellText(cells[1]?.textContent ?? "");
-    const year = Number(
-      normalizeCellText(cells[4]?.textContent ?? "").match(/\b(19[5-9]\d|20[0-3]\d)\b/)?.[0] ?? 0,
-    );
+    const year = parseInt(normalizeCellText(cells[4]?.textContent ?? ""), 10) || 0;
     const vin = extractCleanVin(cells[5]?.textContent ?? "");
-    const division = normalizeCellText(cells[6]?.textContent ?? "");
+    const division = normalizeCellText(cells[6]?.textContent ?? "") || "Unknown";
 
     if (!vin || !make || !model) continue;
 
-    vehicles.set(vin, { year, make, model, vin, division: division || "Unknown" });
+    vehicles.set(vin, { year, make, model, vin, division });
   }
 
   return Array.from(vehicles.values());
