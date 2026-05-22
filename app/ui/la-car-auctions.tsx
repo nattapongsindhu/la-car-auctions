@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
+import demoVehicles from "../../data/demo-vehicles.json";
 
 type TabId = "dashboard" | "scraper" | "history" | "dmv" | "watchlist";
 
@@ -205,9 +206,11 @@ export default function LaCarAution() {
       if (cached) {
         const parsed: unknown = JSON.parse(cached);
         if (Array.isArray(parsed)) setVehicles(parsed as Vehicle[]);
+      } else {
+        setVehicles(demoVehicles as Vehicle[]);
       }
     } catch {
-      setScrapeError("Unable to load cached OPG vehicles.");
+      setVehicles(demoVehicles as Vehicle[]);
     } finally {
       setIsLoadingVehicles(false);
     }

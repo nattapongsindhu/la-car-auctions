@@ -184,31 +184,56 @@ function parseFullText(html: string, vehicles: Map<string, ScrapedVehicle>) {
   }
 }
 
+const FETCH_TIMEOUT_MS = 8_000;
+const MAX_RESPONSE_BYTES = 2_000_000;
+
 export async function GET() {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+
   try {
     const response = await fetch(OPG_AUCTIONS_URL, {
       cache: "no-store",
+      signal: controller.signal,
       headers: {
-        Accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
         "Accept-Language": "en-US,en;q=0.9",
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0 Safari/537.36",
+        "User-Agent": "LA-Car-Auctions-Portfolio/1.0",
       },
     });
 
     if (!response.ok) {
-      console.error(`OPG scrape failed with HTTP ${response.status}`);
-      return NextResponse.json([]);
+      return NextResponse.json(
+        { ok: false, error: "SOURCE_UNAVAILABLE", status: response.status, vehicles: [] },
+        { status: 502 },
+      );
     }
 
     const html = await response.text();
+
+    if (html.length > MAX_RESPONSE_BYTES) {
+      return NextResponse.json(
+        { ok: false, error: "SOURCE_TOO_LARGE", vehicles: [] },
+        { status: 413 },
+      );
+    }
+
     const vehicles = parseTableRows(html);
     parseFullText(html, vehicles);
 
-    return NextResponse.json([...vehicles.values()]);
+    return NextResponse.json({
+      ok: true,
+      source: "opgla",
+      fetchedAt: new Date().toISOString(),
+      vehicles: [...vehicles.values()],
+    });
   } catch (error) {
-    console.error("OPG scrape failed", error);
-    return NextResponse.json([]);
+    const isTimeout = error instanceof Error && error.name === "AbortError";
+    return NextResponse.json(
+      { ok: false, error: isTimeout ? "FETCH_TIMEOUT" : "SCRAPE_FAILED", vehicles: [] },
+      { status: 500 },
+    );
+  } finally {
+    clearTimeout(timeout);
   }
 }

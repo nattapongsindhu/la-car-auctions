@@ -1,0 +1,17 @@
+[
+  { "year": 2022, "make": "TOYOTA", "model": "CAMRY", "vin": "4T1B11HK3NU123456", "division": "Hollywood" },
+  { "year": 2023, "make": "HONDA", "model": "CIVIC", "vin": "19XFC2F59PE123456", "division": "Central" },
+  { "year": 2024, "make": "NISSAN", "model": "ALTIMA", "vin": "1N4BL4BV5RN123456", "division": "West Valley" },
+  { "year": 2021, "make": "MAZDA", "model": "CX-5", "vin": "JM3KFBDM2M0123456", "division": "Van Nuys" },
+  { "year": 2022, "make": "FORD", "model": "ESCAPE", "vin": "1FMCU9GD1NUA12345", "division": "Pacific" },
+  { "year": 2025, "make": "CHEVROLET", "model": "EQUINOX", "vin": "3GNAXUEG5PS123456", "division": "Hollywood" },
+  { "year": 2020, "make": "KIA", "model": "SORENTO", "vin": "5XYPGDA59LG123456", "division": "Southwest" },
+  { "year": 2019, "make": "HYUNDAI", "model": "SONATA", "vin": "5NPE24AF6KH123456", "division": "Northeast" },
+  { "year": 2018, "make": "JEEP", "model": "CHEROKEE", "vin": "1C4PJMCS3JW123456", "division": "77th" },
+  { "year": 2020, "make": "SUBARU", "model": "OUTBACK", "vin": "4S4BTADC9L3123456", "division": "Wilshire" },
+  { "year": 2019, "make": "DODGE", "model": "CHARGER", "vin": "2C3CDXJG7KH123456", "division": "South LA" },
+  { "year": 2004, "make": "HONDA", "model": "ACCORD", "vin": "1HGCM56334A123456", "division": "Newton" },
+  { "year": 2011, "make": "BMW", "model": "328I", "vin": "WBA3A5C57CF123456", "division": "Hollenbeck" },
+  { "year": 2012, "make": "MERCEDES", "model": "C300", "vin": "WDDGF54X2CJ123456", "division": "Rampart" },
+  { "year": 1999, "make": "FORD", "model": "EXPLORER", "vin": "1FMZU34X5XZB12345", "division": "Harbor" }
+]

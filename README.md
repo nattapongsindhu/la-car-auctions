@@ -5,8 +5,9 @@
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript)
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3.x-06B6D4?style=for-the-badge&logo=tailwindcss)
 ![Node.js](https://img.shields.io/badge/Node.js-%3E%3D20.9.0-339933?style=for-the-badge&logo=node.js)
+![CI](https://github.com/nattapongsindhu/la-car-auctions/actions/workflows/ci.yml/badge.svg)
 
-An advanced, high-velocity frontend pipeline and quantitative risk-assessment engine designed to ingest raw, unformatted HTML/Plain-text clipboard data directly from the official **OPG (Official Police Garages) Los Angeles** auction portal. This application bypasses client-side reCAPTCHA limits via real-time stream parsing, identifying the top 5% highest-potential everyday drivers, and optimizing vehicle vetting workflows for automotive traders.
+An advanced frontend data pipeline and quantitative risk-assessment engine for processing publicly available vehicle listings from the **OPG (Official Police Garages) Los Angeles** auction portal. Users manually copy auction table data and paste it into the app for local parsing, risk scoring, and DMV fee estimation — no automated access to protected systems.
 
 ---
 
@@ -30,7 +31,7 @@ Programmatically flags vehicle profiles to protect capital:
 | ⚪ **STANDARD INSPECTION** | Neutral | Passes hard safety filters; requires standard history verification |
 | 🔴 **HIGH RISK: EXCEEDS LIMITS** | Avoid | Year < 2005 OR European luxury badge (BMW, Mercedes, Audi, VW, Jaguar, Land Rover) OR est. DMV fees > $1,500 |
 
-### 🔮 California DMV Advanced Bypass Pipeline
+### 🔮 California DMV Workflow Assistant
 The **"Check DMV ↗"** button delivers a two-action workflow in a single click:
 1. Automatically copies the full unmasked 17-character VIN to the system clipboard
 2. Opens the official [California DMV Vehicle Registration Fee Calculator](https://www.dmv.ca.gov/wasapp/FeeCalculatorWeb/usedVehicleForm.do) in a new tab
@@ -118,6 +119,35 @@ app/
 
 ---
 
+## 🔐 Security & Compliance Note
+
+This project is designed for **educational and portfolio purposes**.
+
+- Does not automate access to any protected website, authentication system, or rate-limited endpoint
+- All data ingestion is performed manually by the user via clipboard paste from publicly viewable auction listings
+- No credentials, API keys, or tokens are stored or transmitted
+- Vehicle data lives exclusively in the user's own browser `localStorage`
+
+See [SECURITY.md](SECURITY.md) for the full vulnerability disclosure policy.
+
+---
+
+## 💼 Portfolio Value
+
+This project demonstrates:
+
+- Next.js 16 App Router with TypeScript
+- Hybrid HTML / plain-text data parsing pipeline
+- Risk scoring business logic with configurable thresholds
+- Client-side filtering, sorting, and search with `useMemo`
+- Browser `localStorage` persistence with SSR safety guards
+- GitHub Actions CI/CD (typecheck + build + security audit)
+- CodeQL static analysis and Dependabot dependency management
+- Vercel production deployment with Node version pinning
+
+---
+
 ## 📄 License
 
-Private repository. All rights reserved.
+MIT License. This repository is public for portfolio review.
+See [LICENSE](LICENSE) for details.
