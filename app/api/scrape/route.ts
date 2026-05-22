@@ -1,5 +1,8 @@
 import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 import * as cheerio from "cheerio";
+import { isAllowedSource } from "../../../lib/security/allowed-sources";
+import { checkRateLimit } from "../../../lib/security/rate-limiter";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
@@ -187,7 +190,25 @@ function parseFullText(html: string, vehicles: Map<string, ScrapedVehicle>) {
 const FETCH_TIMEOUT_MS = 8_000;
 const MAX_RESPONSE_BYTES = 2_000_000;
 
-export async function GET() {
+export async function GET(request: NextRequest) {
+  // Rate limiting — 20 requests per minute per IP
+  const ip =
+    request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "127.0.0.1";
+  if (!checkRateLimit(ip)) {
+    return NextResponse.json(
+      { ok: false, error: "RATE_LIMITED", vehicles: [] },
+      { status: 429 },
+    );
+  }
+
+  // SSRF guard — only allow requests to the approved OPG source host
+  if (!isAllowedSource(OPG_AUCTIONS_URL)) {
+    return NextResponse.json(
+      { ok: false, error: "SOURCE_NOT_ALLOWED", vehicles: [] },
+      { status: 403 },
+    );
+  }
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
 

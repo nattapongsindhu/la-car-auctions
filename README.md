@@ -172,5 +172,10 @@ This project demonstrates:
 
 ## 📄 License
 
-MIT License. This repository is public for portfolio review.
-See [LICENSE](LICENSE) for details.
+This project is licensed under the **MIT License** — see the [LICENSE](LICENSE) file for details.
+
+### Disclaimer
+
+Data shown in this application is processed locally in the browser and is intended purely for **educational and analysis purposes**. This project operates strictly on a client-side ingestion model and does not automate or simulate unauthorized access to protected external systems. Users manually copy publicly available auction table listings from the official OPG portal and paste them into this application for decentralised local parsing, risk analysis, and budgeting.
+
+Users must verify all critical registration data directly with the official [Official Police Garages (OPG)](https://opgla.com/Auctions) and [California DMV](https://www.dmv.ca.gov) websites before making any real-world purchase decisions.

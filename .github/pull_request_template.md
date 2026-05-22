@@ -11,10 +11,20 @@ Describe what changed and why.
 - [ ] Security improvement
 - [ ] Dependency update
 
-## Checklist
+## Test plan
 
 - [ ] `npm run typecheck` passes
+- [ ] `npm run lint` passes
+- [ ] `npm test` passes
 - [ ] `npm run build` passes
-- [ ] No secrets or API keys committed
-- [ ] README updated if behavior changed
+- [ ] Manual smoke test in browser
+
+## Checklist
+
+- [ ] No sensitive data or secrets committed
+- [ ] README updated if behaviour changed
 - [ ] Screenshots added for UI changes
+
+## Related issues
+
+Closes #
