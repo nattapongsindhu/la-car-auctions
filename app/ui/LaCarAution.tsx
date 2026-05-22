@@ -1,7 +1,6 @@
 "use client";
 
 import {
-  Activity,
   AlertTriangle,
   ArrowUpRight,
   Calculator,
@@ -32,31 +31,26 @@ type Vehicle = {
   estimate: string;
 };
 
-const tabs: Array<{ id: TabId; label: string; detail: string }> = [
+const tabs: Array<{ id: TabId; label: string }> = [
   {
     id: "dashboard",
     label: "Dashboard",
-    detail: "Overview cards, statistics, market trends",
   },
   {
     id: "scraper",
     label: "Vehicle Scraper",
-    detail: "Master grid of crawled OPG vehicles",
   },
   {
     id: "history",
     label: "VIN History",
-    detail: "Salvage, odometer, and impound tracking",
   },
   {
     id: "dmv",
     label: "DMV Calculator",
-    detail: "California back-fees and penalties",
   },
   {
     id: "watchlist",
     label: "Watchlist",
-    detail: "Saved vehicles with appraisal notes",
   },
 ];
 
@@ -129,7 +123,7 @@ function googleImageLink(vin: string) {
   return `https://www.google.com/search?q=${query}&tbm=isch`;
 }
 
-export function CarAuctionIntel() {
+export function LaCarAution() {
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
   const [query, setQuery] = useState("");
   const [division, setDivision] = useState("All Divisions");
@@ -163,15 +157,13 @@ export function CarAuctionIntel() {
             <div>
               <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-slate-100 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-500 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-400">
                 <Database size={16} />
-                Los Angeles OPG Intelligence Platform
+                LA Car Aution
               </div>
               <h1 className="max-w-3xl text-4xl font-black tracking-tight text-slate-950 dark:text-white sm:text-5xl">
-                <span>LA Car Auction </span>
-                <span className="ml-3 inline-block whitespace-nowrap">Intel</span>
+                LA Car Aution
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-slate-500 dark:text-slate-400">
-                Clean auction research for impounded vehicles, VIN history,
-                DMV fee exposure, and disciplined appraisal decisions.
+                Official LA Car Aution Platform
               </p>
             </div>
             <ThemeToggle />
@@ -192,9 +184,6 @@ export function CarAuctionIntel() {
                 >
                   <span className="block text-sm font-black">
                     {index + 1}. {tab.label}
-                  </span>
-                  <span className="mt-1 block max-w-48 text-xs leading-5 opacity-75">
-                    {tab.detail}
                   </span>
                 </button>
               ))}
@@ -394,8 +383,7 @@ function VehicleScraperTab({
         <div>
           <h2 className="text-2xl font-black">Vehicle Scraper</h2>
           <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-            Mock master grid for crawled OPG vehicles with VIN image-search
-            intelligence links.
+            LA Car Aution
           </p>
         </div>
         <div className="grid gap-3 sm:grid-cols-[minmax(220px,1fr)_190px]">
@@ -496,7 +484,7 @@ function VinHistoryTab({
         </div>
         <h2 className="text-2xl font-black">VIN History</h2>
         <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
-          Paste a VIN to review a mocked intelligence timeline before placing
+          Paste a VIN to review a mocked vehicle timeline before placing
           an auction bid.
         </p>
         <label className="mt-8 block text-sm font-black text-slate-500 dark:text-slate-400">

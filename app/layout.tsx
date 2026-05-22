@@ -3,8 +3,8 @@ import "./globals.css";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "LA Car Auction Intel",
-  description: "Modern intelligence dashboard for Los Angeles car auctions.",
+  title: "LA Car Aution",
+  description: "Official LA Car Aution Platform",
 };
 
 export default function RootLayout({

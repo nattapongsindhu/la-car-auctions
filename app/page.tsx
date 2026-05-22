@@ -1,5 +1,5 @@
-import { CarAuctionIntel } from "./ui/CarAuctionIntel";
+import { LaCarAution } from "./ui/LaCarAution";
 
 export default function Home() {
-  return <CarAuctionIntel />;
+  return <LaCarAution />;
 }
