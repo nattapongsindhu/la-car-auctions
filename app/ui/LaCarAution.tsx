@@ -12,6 +12,7 @@ import {
   Moon,
   Search,
   ShieldAlert,
+  ShieldCheck,
   Star,
   Sun,
   TrendingUp,
@@ -32,27 +33,23 @@ type Vehicle = {
 type SortKey = "year" | "make" | "model";
 type SortDirection = "asc" | "desc";
 
+type RiskResult = {
+  status: "clean" | "high";
+  dmvFee: number;
+  reasons: string[];
+};
+
+const CURRENT_YEAR = 2026;
+const STORAGE_KEY = "opg-vehicles";
+const EUROPEAN_PREFIXES = ["BMW", "MERC", "AUDI", "VOLK", "JAGU", "LAND"];
+const JAPANESE_BRANDS = ["TOYOTA", "HONDA", "NISSAN", "MAZDA"];
+
 const tabs: Array<{ id: TabId; label: string }> = [
-  {
-    id: "dashboard",
-    label: "Dashboard",
-  },
-  {
-    id: "scraper",
-    label: "Vehicle Scraper",
-  },
-  {
-    id: "history",
-    label: "VIN History",
-  },
-  {
-    id: "dmv",
-    label: "DMV Calculator",
-  },
-  {
-    id: "watchlist",
-    label: "Watchlist",
-  },
+  { id: "dashboard", label: "Dashboard" },
+  { id: "scraper", label: "Vehicle Scraper" },
+  { id: "history", label: "VIN History" },
+  { id: "dmv", label: "DMV Calculator" },
+  { id: "watchlist", label: "Watchlist" },
 ];
 
 const volumePoints = [78, 92, 88, 111, 126, 119, 142, 154];
@@ -62,7 +59,7 @@ function maskVin(vin: string) {
 }
 
 function googleImageLink(vin: string) {
-  const query = encodeURIComponent(`${vin} car auction`);
+  const query = encodeURIComponent(`${vin} "salvage" OR "odometer" OR "auction"`);
   return `https://www.google.com/search?q=${query}&tbm=isch`;
 }
 
@@ -79,37 +76,55 @@ function extractCleanVin(value: string) {
   );
 }
 
+function computeDmvFee(year: number): number {
+  if (!year) return 0;
+  return (CURRENT_YEAR - year) * 150 + 200;
+}
+
+function assessRisk(vehicle: Vehicle): RiskResult {
+  const dmvFee = computeDmvFee(vehicle.year);
+  const makeUpper = vehicle.make.toUpperCase();
+
+  const isOld = vehicle.year > 0 && vehicle.year < 2005;
+  const isEuropean = EUROPEAN_PREFIXES.some((p) => makeUpper.startsWith(p));
+  const feesTooHigh = dmvFee > 1000;
+
+  if (isOld || isEuropean || feesTooHigh) {
+    const reasons: string[] = [];
+    if (isOld) reasons.push(`Pre-2005 (${vehicle.year})`);
+    if (isEuropean) reasons.push("European brand");
+    if (feesTooHigh) reasons.push(`Est. DMV $${dmvFee.toLocaleString()}`);
+    return { status: "high", dmvFee, reasons };
+  }
+
+  const isJapanese = JAPANESE_BRANDS.some((b) => makeUpper.includes(b));
+  if (isJapanese && vehicle.year >= 2008 && dmvFee < 500) {
+    return { status: "clean", dmvFee, reasons: [] };
+  }
+
+  return { status: "high", dmvFee, reasons: ["Not a verified clean candidate"] };
+}
+
 function parseOpgHtmlTable(source: string): Vehicle[] {
-  const document = new DOMParser().parseFromString(source, "text/html");
-  const rows = Array.from(document.querySelectorAll("tr"));
+  const doc = new DOMParser().parseFromString(source, "text/html");
+  const rows = Array.from(doc.querySelectorAll("tr"));
   const vehicles = new Map<string, Vehicle>();
 
   for (const row of rows) {
     const cells = Array.from(row.querySelectorAll("td"));
-    if (cells.length < 7) {
-      continue;
-    }
+    if (cells.length < 7) continue;
 
     const make = normalizeCellText(cells[0]?.textContent ?? "");
     const model = normalizeCellText(cells[1]?.textContent ?? "");
     const year = Number(
-      normalizeCellText(cells[4]?.textContent ?? "").match(/\b(19[5-9]\d|20[0-3]\d)\b/)?.[0] ??
-        0,
+      normalizeCellText(cells[4]?.textContent ?? "").match(/\b(19[5-9]\d|20[0-3]\d)\b/)?.[0] ?? 0,
     );
     const vin = extractCleanVin(cells[5]?.textContent ?? "");
     const division = normalizeCellText(cells[6]?.textContent ?? "");
 
-    if (!vin || !make || !model) {
-      continue;
-    }
+    if (!vin || !make || !model) continue;
 
-    vehicles.set(vin, {
-      year,
-      make,
-      model,
-      vin,
-      division: division || "Unknown",
-    });
+    vehicles.set(vin, { year, make, model, vin, division: division || "Unknown" });
   }
 
   return Array.from(vehicles.values());
@@ -125,55 +140,29 @@ export default function LaCarAution() {
   const [scrapeError, setScrapeError] = useState("");
 
   useEffect(() => {
-    let isMounted = true;
-
-    async function loadVehicles() {
-      try {
-        setIsLoadingVehicles(true);
-        setScrapeError("");
-
-        const response = await fetch("/api/scrape", { cache: "no-store" });
-        if (!response.ok) {
-          throw new Error("Unable to load OPG vehicles.");
-        }
-
-        const payload: Vehicle[] = await response.json();
-        if (isMounted) {
-          setVehicles(Array.isArray(payload) ? payload : []);
-        }
-      } catch {
-        if (isMounted) {
-          setVehicles([]);
-          setScrapeError("Unable to load live OPG vehicles.");
-        }
-      } finally {
-        if (isMounted) {
-          setIsLoadingVehicles(false);
-        }
+    try {
+      const cached = localStorage.getItem(STORAGE_KEY);
+      if (cached) {
+        const parsed: unknown = JSON.parse(cached);
+        if (Array.isArray(parsed)) setVehicles(parsed as Vehicle[]);
       }
+    } catch {
+      setScrapeError("Unable to load cached OPG vehicles.");
+    } finally {
+      setIsLoadingVehicles(false);
     }
-
-    loadVehicles();
-
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
   const averageYear = useMemo(() => {
-    const validYears = vehicles
-      .map((vehicle) => vehicle.year)
-      .filter((year) => year > 0);
+    const valid = vehicles.map((v) => v.year).filter((y) => y > 0);
+    if (valid.length === 0) return "N/A";
+    return String(Math.round(valid.reduce((a, y) => a + y, 0) / valid.length));
+  }, [vehicles]);
 
-    if (validYears.length === 0) {
-      return "N/A";
-    }
-
-    return String(
-      Math.round(
-        validYears.reduce((total, year) => total + year, 0) / validYears.length,
-      ),
-    );
+  const avgDmvFee = useMemo(() => {
+    const fees = vehicles.map((v) => computeDmvFee(v.year)).filter((f) => f > 0);
+    if (fees.length === 0) return "N/A";
+    return `$${Math.round(fees.reduce((a, b) => a + b, 0) / fees.length).toLocaleString()}`;
   }, [vehicles]);
 
   const penalty = Math.round(baseFee * Math.min(monthsLate, 24) * 0.035);
@@ -223,7 +212,11 @@ export default function LaCarAution() {
         </header>
 
         {activeTab === "dashboard" && (
-          <DashboardTab averageYear={averageYear} vehicleCount={vehicles.length} />
+          <DashboardTab
+            averageYear={averageYear}
+            avgDmvFee={avgDmvFee}
+            vehicleCount={vehicles.length}
+          />
         )}
         {activeTab === "scraper" && (
           <VehicleScraperTab
@@ -275,9 +268,11 @@ function ThemeToggle() {
 
 function DashboardTab({
   averageYear,
+  avgDmvFee,
   vehicleCount,
 }: {
   averageYear: string;
+  avgDmvFee: string;
   vehicleCount: number;
 }) {
   return (
@@ -298,7 +293,7 @@ function DashboardTab({
         <KpiCard
           icon={<Calculator size={22} />}
           label="Estimated Avg DMV Back-Fees"
-          value="$420.00"
+          value={avgDmvFee}
           note="Before inspection, smog, and repair risk"
         />
       </div>
@@ -337,15 +332,9 @@ function KpiCard({
       <div className="mb-7 grid h-12 w-12 place-items-center rounded-2xl bg-blue-50 text-blue-600 dark:bg-blue-500/10 dark:text-blue-300">
         {icon}
       </div>
-      <p className="text-sm font-bold text-slate-500 dark:text-slate-400">
-        {label}
-      </p>
-      <strong className="mt-3 block text-3xl font-black tracking-tight">
-        {value}
-      </strong>
-      <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
-        {note}
-      </p>
+      <p className="text-sm font-bold text-slate-500 dark:text-slate-400">{label}</p>
+      <strong className="mt-3 block text-3xl font-black tracking-tight">{value}</strong>
+      <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">{note}</p>
     </article>
   );
 }
@@ -387,11 +376,20 @@ function MiniLineChart() {
         {volumePoints.map((value, index) => {
           const x = (index / (volumePoints.length - 1)) * 700;
           const y = 190 - ((value - min) / (max - min)) * 150;
-
           return (
             <g key={value + index}>
-              <circle cx={x} cy={y} r="8" className="fill-white stroke-blue-600 stroke-[5] dark:fill-slate-950 dark:stroke-blue-400" />
-              <text x={x} y="222" textAnchor="middle" className="fill-slate-400 text-[18px] font-bold">
+              <circle
+                cx={x}
+                cy={y}
+                r="8"
+                className="fill-white stroke-blue-600 stroke-[5] dark:fill-slate-950 dark:stroke-blue-400"
+              />
+              <text
+                x={x}
+                y="222"
+                textAnchor="middle"
+                className="fill-slate-400 text-[18px] font-bold"
+              >
                 W{index + 1}
               </text>
             </g>
@@ -421,91 +419,91 @@ function VehicleScraperTab({
   const [divisionFilter, setDivisionFilter] = useState("All Divisions");
   const [sortKey, setSortKey] = useState<SortKey>("year");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
+  const [hideHighRisk, setHideHighRisk] = useState(false);
 
   const years = useMemo(
     () =>
-      Array.from(new Set(vehicles.map((vehicle) => vehicle.year).filter(Boolean)))
+      Array.from(new Set(vehicles.map((v) => v.year).filter(Boolean)))
         .sort((a, b) => b - a)
         .map(String),
     [vehicles],
   );
   const makes = useMemo(
     () =>
-      Array.from(new Set(vehicles.map((vehicle) => vehicle.make).filter(Boolean)))
-        .sort((a, b) => a.localeCompare(b)),
+      Array.from(new Set(vehicles.map((v) => v.make).filter(Boolean))).sort((a, b) =>
+        a.localeCompare(b),
+      ),
     [vehicles],
   );
   const divisions = useMemo(
     () =>
-      Array.from(new Set(vehicles.map((vehicle) => vehicle.division).filter(Boolean)))
-        .sort((a, b) => a.localeCompare(b)),
+      Array.from(new Set(vehicles.map((v) => v.division).filter(Boolean))).sort((a, b) =>
+        a.localeCompare(b),
+      ),
     [vehicles],
   );
 
   const filteredVehicles = useMemo(() => {
-    const normalizedQuery = query.trim().toLowerCase();
-
+    const q = query.trim().toLowerCase();
     return vehicles.filter((car) => {
+      if (hideHighRisk && assessRisk(car).status === "high") return false;
       const matchSearch =
-        normalizedQuery.length === 0 ||
-        car.make.toLowerCase().includes(normalizedQuery) ||
-        car.model.toLowerCase().includes(normalizedQuery);
-      const matchYear =
-        yearFilter === "All Years" || String(car.year) === yearFilter;
-      const matchMake =
-        makeFilter === "All Makes" || car.make === makeFilter;
-      const matchDivision =
-        divisionFilter === "All Divisions" || car.division === divisionFilter;
-
+        q.length === 0 ||
+        car.make.toLowerCase().includes(q) ||
+        car.model.toLowerCase().includes(q);
+      const matchYear = yearFilter === "All Years" || String(car.year) === yearFilter;
+      const matchMake = makeFilter === "All Makes" || car.make === makeFilter;
+      const matchDivision = divisionFilter === "All Divisions" || car.division === divisionFilter;
       return matchSearch && matchYear && matchMake && matchDivision;
     });
-  }, [divisionFilter, makeFilter, query, vehicles, yearFilter]);
+  }, [divisionFilter, hideHighRisk, makeFilter, query, vehicles, yearFilter]);
 
   const sortedVehicles = useMemo(() => {
     return [...filteredVehicles].sort((a, b) => {
-      const multiplier = sortDirection === "asc" ? 1 : -1;
-
-      if (sortKey === "year") {
-        return ((a.year || 0) - (b.year || 0)) * multiplier;
-      }
-
-      return a[sortKey].localeCompare(b[sortKey]) * multiplier;
+      const m = sortDirection === "asc" ? 1 : -1;
+      if (sortKey === "year") return ((a.year || 0) - (b.year || 0)) * m;
+      return a[sortKey].localeCompare(b[sortKey]) * m;
     });
   }, [filteredVehicles, sortDirection, sortKey]);
 
   function synchronizeLiveProductionData() {
-    const parsedVehicles = parseOpgHtmlTable(htmlSource);
-
-    setVehicles(parsedVehicles);
+    const parsed = parseOpgHtmlTable(htmlSource);
+    setVehicles(parsed);
     setYearFilter("All Years");
     setMakeFilter("All Makes");
     setDivisionFilter("All Divisions");
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+    } catch {
+      /* ignore storage errors */
+    }
     setSyncMessage(
-      parsedVehicles.length > 0
-        ? `Synchronized ${parsedVehicles.length} vehicles.`
+      parsed.length > 0
+        ? `Synchronized ${parsed.length} vehicles successfully.`
         : "No vehicles found. Confirm the pasted HTML includes table body rows.",
     );
   }
 
-  function handleSort(nextSortKey: SortKey) {
-    if (sortKey === nextSortKey) {
-      setSortDirection((current) => (current === "asc" ? "desc" : "asc"));
+  function handleSort(next: SortKey) {
+    if (sortKey === next) {
+      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
       return;
     }
-
-    setSortKey(nextSortKey);
-    setSortDirection(nextSortKey === "year" ? "desc" : "asc");
+    setSortKey(next);
+    setSortDirection(next === "year" ? "desc" : "asc");
   }
 
   return (
     <section className="rounded-3xl border border-slate-100 bg-white p-6 shadow-soft dark:border-slate-800 dark:bg-slate-900 sm:p-8">
+      {/* OPG Live HTML Ingestor */}
       <div className="mb-8 rounded-3xl border border-blue-100 bg-blue-50/60 p-6 dark:border-blue-500/20 dark:bg-blue-500/10">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <h2 className="text-xl font-black">OPG Live Feed Synchronizer</h2>
+            <h2 className="text-xl font-black">OPG Live HTML Ingestor</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-              Paste the raw auction table HTML, then synchronize it into the
-              dashboard, filters, watchlist, and VIN deep links.
+              Copy the raw auction table HTML from the OPG &quot;Next Week Auctions&quot; page and
+              paste it below. Click Synchronize to parse, analyze, and cache all vehicles
+              instantly—bypassing reCAPTCHA via client-side ingestion.
             </p>
           </div>
           <button
@@ -518,76 +516,95 @@ function VehicleScraperTab({
         </div>
         <textarea
           value={htmlSource}
-          onChange={(event) => setHtmlSource(event.target.value)}
-          placeholder="Paste raw <table> or <tbody> HTML source code from Next Week Auctions page here..."
-          className="mt-5 min-h-40 w-full resize-y rounded-3xl border border-blue-100 bg-white p-5 font-mono text-sm leading-6 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-300 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200"
+          onChange={(e) => setHtmlSource(e.target.value)}
+          placeholder="Paste raw <table> or <tbody> HTML source code from the Next Week Auctions page here..."
+          className="mt-5 min-h-44 w-full resize-y rounded-3xl border border-blue-100 bg-white p-5 font-mono text-sm leading-6 text-slate-700 outline-none transition placeholder:text-slate-400 focus:border-blue-300 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-200"
         />
         {syncMessage && (
-          <p className="mt-3 text-sm font-bold text-blue-700 dark:text-blue-300">
-            {syncMessage}
-          </p>
+          <p className="mt-3 text-sm font-bold text-blue-700 dark:text-blue-300">{syncMessage}</p>
         )}
       </div>
 
-      <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-        <div>
-          <h2 className="text-2xl font-black">Vehicle Scraper</h2>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
-            LA Car Aution
-          </p>
-        </div>
+      <div className="mb-8 flex flex-col gap-2">
+        <h2 className="text-2xl font-black">Vehicle Scraper</h2>
+        <p className="max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
+          Mechanical and financial vetting pipeline — identifying the top 5% highest-potential
+          everyday drivers from the full OPG auction list.
+        </p>
       </div>
 
-      <div className="mt-8 rounded-3xl border border-slate-100 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-950/70">
+      {/* Filter Bar */}
+      <div className="rounded-3xl border border-slate-100 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-950/70">
         <div className="grid gap-3 lg:grid-cols-[minmax(260px,1.35fr)_minmax(150px,0.8fr)_minmax(170px,0.9fr)_minmax(220px,1fr)]">
           <label className="flex min-h-14 items-center gap-3 rounded-2xl border border-slate-100 bg-white px-4 dark:border-slate-800 dark:bg-slate-900">
             <Search size={18} className="text-slate-400" />
             <input
               value={query}
-              onChange={(event) => setQuery(event.target.value)}
+              onChange={(e) => setQuery(e.target.value)}
               placeholder="Search Make or Model"
               className="w-full bg-transparent text-sm font-semibold outline-none placeholder:text-slate-400"
             />
           </label>
           <select
             value={yearFilter}
-            onChange={(event) => setYearFilter(event.target.value)}
+            onChange={(e) => setYearFilter(e.target.value)}
             className="min-h-14 rounded-2xl border border-slate-100 bg-white px-4 text-sm font-bold outline-none dark:border-slate-800 dark:bg-slate-900"
           >
             <option>All Years</option>
-            {years.map((year) => (
-              <option key={year}>{year}</option>
+            {years.map((y) => (
+              <option key={y}>{y}</option>
             ))}
           </select>
           <select
             value={makeFilter}
-            onChange={(event) => setMakeFilter(event.target.value)}
+            onChange={(e) => setMakeFilter(e.target.value)}
             className="min-h-14 rounded-2xl border border-slate-100 bg-white px-4 text-sm font-bold outline-none dark:border-slate-800 dark:bg-slate-900"
           >
             <option>All Makes</option>
-            {makes.map((make) => (
-              <option key={make}>{make}</option>
+            {makes.map((m) => (
+              <option key={m}>{m}</option>
             ))}
           </select>
           <select
             value={divisionFilter}
-            onChange={(event) => setDivisionFilter(event.target.value)}
+            onChange={(e) => setDivisionFilter(e.target.value)}
             className="min-h-14 rounded-2xl border border-slate-100 bg-white px-4 text-sm font-bold outline-none dark:border-slate-800 dark:bg-slate-900"
           >
             <option>All Divisions</option>
-            {divisions.map((item) => (
-              <option key={item}>{item}</option>
+            {divisions.map((d) => (
+              <option key={d}>{d}</option>
             ))}
           </select>
         </div>
-        <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
-          Showing <strong className="text-slate-950 dark:text-white">{filteredVehicles.length}</strong> out of{" "}
-          <strong className="text-slate-950 dark:text-white">{vehicles.length}</strong> available auction vehicles
-        </p>
+
+        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            Displaying{" "}
+            <strong className="text-slate-950 dark:text-white">{filteredVehicles.length}</strong>{" "}
+            verified everyday drivers out of{" "}
+            <strong className="text-slate-950 dark:text-white">{vehicles.length}</strong> total
+            entries.
+          </p>
+          <label className="flex cursor-pointer items-center gap-3">
+            <div className="relative">
+              <input
+                type="checkbox"
+                checked={hideHighRisk}
+                onChange={(e) => setHideHighRisk(e.target.checked)}
+                className="peer sr-only"
+              />
+              <div className="relative h-6 w-11 rounded-full bg-slate-200 transition after:absolute after:start-[2px] after:top-[2px] after:h-5 after:w-5 after:rounded-full after:border after:border-slate-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white dark:bg-slate-700" />
+            </div>
+            <span className="text-sm font-black text-slate-700 dark:text-slate-200">
+              Hide High-Risk Vehicles
+            </span>
+          </label>
+        </div>
       </div>
 
+      {/* Vehicle Table */}
       <div className="mt-8 overflow-x-auto rounded-3xl border border-slate-100 dark:border-slate-800">
-        <table className="min-w-[900px] w-full border-collapse text-left text-sm">
+        <table className="w-full min-w-[1100px] border-collapse text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-[0.18em] text-slate-400 dark:bg-slate-950">
             <tr>
               <th className="px-6 py-5 font-black">
@@ -598,6 +615,7 @@ function VehicleScraperTab({
                   onClick={() => handleSort("year")}
                 />
               </th>
+              <th className="px-6 py-5 font-black">Risk</th>
               <th className="px-6 py-5 font-black">
                 <SortHeader
                   active={sortKey === "make"}
@@ -621,51 +639,56 @@ function VehicleScraperTab({
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {isLoadingVehicles &&
-              Array.from({ length: 5 }).map((_, index) => (
-                <tr key={index} className="animate-pulse">
-                  <td className="px-6 py-5" colSpan={6}>
+              Array.from({ length: 5 }).map((_, i) => (
+                <tr key={i} className="animate-pulse">
+                  <td className="px-6 py-5" colSpan={7}>
                     <div className="h-10 rounded-2xl bg-slate-100 dark:bg-slate-800" />
                   </td>
                 </tr>
               ))}
 
-            {!isLoadingVehicles && sortedVehicles.map((vehicle) => (
-              <tr key={vehicle.vin} className="align-middle">
-                <td className="px-6 py-5 font-black">{vehicle.year || "N/A"}</td>
-                <td className="px-6 py-5 font-bold">{vehicle.make}</td>
-                <td className="px-6 py-5 text-slate-600 dark:text-slate-300">
-                  {vehicle.model}
-                </td>
-                <td className="px-6 py-5 font-mono text-xs font-bold text-slate-500">
-                  {maskVin(vehicle.vin)}
-                </td>
-                <td className="px-6 py-5">
-                  <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-                    {vehicle.division}
-                  </span>
-                </td>
-                <td className="px-6 py-5">
-                  <div className="flex items-center gap-3">
-                    <a
-                      href={googleImageLink(vehicle.vin)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-xs font-black text-white transition hover:bg-blue-700"
-                    >
-                      Deep Link
-                      <ArrowUpRight size={14} />
-                    </a>
-                    <span className="text-xs font-bold text-slate-400">
-                      Live OPG
-                    </span>
-                  </div>
-                </td>
-              </tr>
-            ))}
+            {!isLoadingVehicles &&
+              sortedVehicles.map((vehicle) => {
+                const risk = assessRisk(vehicle);
+                return (
+                  <tr key={vehicle.vin} className="align-middle">
+                    <td className="px-6 py-5 font-black">{vehicle.year || "N/A"}</td>
+                    <td className="px-6 py-5">
+                      <RiskBadge risk={risk} />
+                    </td>
+                    <td className="px-6 py-5 font-bold">{vehicle.make}</td>
+                    <td className="px-6 py-5 text-slate-600 dark:text-slate-300">
+                      {vehicle.model}
+                    </td>
+                    <td className="px-6 py-5 font-mono text-xs font-bold text-slate-500">
+                      {maskVin(vehicle.vin)}
+                    </td>
+                    <td className="px-6 py-5">
+                      <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                        {vehicle.division}
+                      </span>
+                    </td>
+                    <td className="px-6 py-5">
+                      <div className="flex items-center gap-3">
+                        <a
+                          href={googleImageLink(vehicle.vin)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 rounded-full bg-blue-600 px-4 py-2 text-xs font-black text-white transition hover:bg-blue-700"
+                        >
+                          Deep Link
+                          <ArrowUpRight size={14} />
+                        </a>
+                        <span className="text-xs font-bold text-slate-400">Live OPG</span>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
 
             {!isLoadingVehicles && sortedVehicles.length === 0 && (
               <tr>
-                <td className="px-6 py-12 text-center" colSpan={6}>
+                <td className="px-6 py-12 text-center" colSpan={7}>
                   <p className="font-black text-slate-700 dark:text-slate-200">
                     {vehicles.length > 0
                       ? "No vehicles match your active filtering criteria. Try resetting a dropdown option."
@@ -681,6 +704,26 @@ function VehicleScraperTab({
         </table>
       </div>
     </section>
+  );
+}
+
+function RiskBadge({ risk }: { risk: RiskResult }) {
+  if (risk.status === "clean") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-black text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
+        <ShieldCheck size={12} />
+        CLEAN CANDIDATE
+      </span>
+    );
+  }
+  return (
+    <span
+      className="inline-flex items-center gap-1.5 rounded-full bg-rose-100 px-3 py-1.5 text-xs font-black text-rose-700 dark:bg-rose-500/20 dark:text-rose-300"
+      title={risk.reasons.join(" · ")}
+    >
+      <ShieldAlert size={12} />
+      HIGH RISK: EXCEEDS LIMITS
+    </span>
   );
 }
 
@@ -731,14 +774,13 @@ function VinHistoryTab({
         </div>
         <h2 className="text-2xl font-black">VIN History</h2>
         <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
-          Paste a VIN to review a mocked vehicle timeline before placing
-          an auction bid.
+          Paste a VIN to review a mocked vehicle timeline before placing an auction bid.
         </p>
         <label className="mt-8 block text-sm font-black text-slate-500 dark:text-slate-400">
           VIN Lookup
           <input
             value={vinInput}
-            onChange={(event) => setVinInput(event.target.value.toUpperCase())}
+            onChange={(e) => setVinInput(e.target.value.toUpperCase())}
             className="mt-3 h-14 w-full rounded-2xl border border-slate-100 bg-slate-50 px-5 font-mono text-sm font-black outline-none focus:border-blue-300 dark:border-slate-800 dark:bg-slate-950"
           />
         </label>
@@ -819,8 +861,8 @@ function DmvCalculatorTab({
       <div className="rounded-3xl border border-slate-100 bg-white p-8 shadow-soft dark:border-slate-800 dark:bg-slate-900">
         <h2 className="text-2xl font-black">California DMV Calculator</h2>
         <p className="mt-3 text-sm leading-6 text-slate-500 dark:text-slate-400">
-          Estimate back-fees and late penalties before bidding. This is a mock
-          planning calculator, not an official DMV quote.
+          Estimate back-fees and late penalties before bidding. This is a mock planning calculator,
+          not an official DMV quote.
         </p>
         <div className="mt-8 grid gap-5">
           <label className="text-sm font-black text-slate-500 dark:text-slate-400">
@@ -829,7 +871,7 @@ function DmvCalculatorTab({
               type="number"
               min={0}
               value={baseFee}
-              onChange={(event) => setBaseFee(Number(event.target.value))}
+              onChange={(e) => setBaseFee(Number(e.target.value))}
               className="mt-3 h-14 w-full rounded-2xl border border-slate-100 bg-slate-50 px-5 text-lg font-black outline-none dark:border-slate-800 dark:bg-slate-950"
             />
           </label>
@@ -840,7 +882,7 @@ function DmvCalculatorTab({
               min={0}
               max={24}
               value={monthsLate}
-              onChange={(event) => setMonthsLate(Number(event.target.value))}
+              onChange={(e) => setMonthsLate(Number(e.target.value))}
               className="mt-3 h-14 w-full rounded-2xl border border-slate-100 bg-slate-50 px-5 text-lg font-black outline-none dark:border-slate-800 dark:bg-slate-950"
             />
           </label>
@@ -873,14 +915,18 @@ function FeeRow({ label, value }: { label: string; value: number }) {
 }
 
 function WatchlistTab({ vehicles }: { vehicles: Vehicle[] }) {
-  const watched = vehicles.slice(0, 3);
+  const watched = useMemo(
+    () => vehicles.filter((v) => assessRisk(v).status === "clean").slice(0, 3),
+    [vehicles],
+  );
 
   if (watched.length === 0) {
     return (
       <section className="rounded-3xl border border-slate-100 bg-white p-8 text-center shadow-soft dark:border-slate-800 dark:bg-slate-900">
         <h2 className="text-xl font-black">Watchlist</h2>
         <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-          Live OPG vehicles will appear here after the scraper returns data.
+          Verified clean candidate vehicles from the ingested OPG list will appear here
+          automatically after synchronization.
         </p>
       </section>
     );
@@ -891,26 +937,24 @@ function WatchlistTab({ vehicles }: { vehicles: Vehicle[] }) {
       {watched.map((vehicle, index) => (
         <article
           key={vehicle.vin}
-          className="rounded-3xl border border-slate-100 bg-white p-7 shadow-soft dark:border-slate-800 dark:bg-slate-900"
+          className="rounded-3xl border border-emerald-100 bg-white p-7 shadow-soft dark:border-emerald-500/20 dark:bg-slate-900"
         >
           <div className="mb-6 flex items-center justify-between">
             <span className="grid h-11 w-11 place-items-center rounded-2xl bg-amber-50 text-amber-600 dark:bg-amber-500/10 dark:text-amber-300">
               <Star size={20} />
             </span>
-            <span className="rounded-full bg-slate-100 px-3 py-1.5 text-xs font-black text-slate-500 dark:bg-slate-800 dark:text-slate-300">
+            <span className="rounded-full bg-emerald-100 px-3 py-1.5 text-xs font-black text-emerald-700 dark:bg-emerald-500/20 dark:text-emerald-300">
               Priority {index + 1}
             </span>
           </div>
           <h2 className="text-xl font-black">
             {vehicle.year} {vehicle.make} {vehicle.model}
           </h2>
-          <p className="mt-2 font-mono text-xs font-bold text-slate-400">
-            {maskVin(vehicle.vin)}
-          </p>
+          <p className="mt-2 font-mono text-xs font-bold text-slate-400">{maskVin(vehicle.vin)}</p>
           <div className="mt-6 grid gap-3 text-sm">
             <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-300">
               <CheckCircle2 size={16} />
-              <span className="font-bold">Target appraisal: Pending review</span>
+              <span className="font-bold">Verified clean candidate</span>
             </div>
             <div className="flex items-center gap-2 text-amber-600 dark:text-amber-300">
               <AlertTriangle size={16} />
@@ -918,9 +962,20 @@ function WatchlistTab({ vehicles }: { vehicles: Vehicle[] }) {
             </div>
             <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
               <Clock3 size={16} />
-              <span className="font-bold">Custom note: inspect photos first</span>
+              <span className="font-bold">
+                Est. DMV: ${computeDmvFee(vehicle.year).toLocaleString()}
+              </span>
             </div>
           </div>
+          <a
+            href={googleImageLink(vehicle.vin)}
+            target="_blank"
+            rel="noreferrer"
+            className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-blue-600 py-3 text-xs font-black text-white transition hover:bg-blue-700"
+          >
+            Deep Link Search
+            <ArrowUpRight size={14} />
+          </a>
         </article>
       ))}
     </section>
