@@ -500,7 +500,7 @@ function VehicleScraperTab({
     } catch {
       // clipboard blocked — still open DMV tab
     }
-    window.open("https://www.dmv.ca.gov/wasapp/FeeCalculatorWeb/feeRequest.do", "_blank", "noopener,noreferrer");
+    window.open("https://www.dmv.ca.gov/wasapp/FeeCalculatorWeb/usedVehicleForm.do", "_blank", "noopener,noreferrer");
   }
 
   const years = useMemo(
@@ -1032,7 +1032,7 @@ function WatchlistTab({ vehicles }: { vehicles: Vehicle[] }) {
     } catch {
       // clipboard blocked — still open DMV tab
     }
-    window.open("https://www.dmv.ca.gov/wasapp/FeeCalculatorWeb/feeRequest.do", "_blank", "noopener,noreferrer");
+    window.open("https://www.dmv.ca.gov/wasapp/FeeCalculatorWeb/usedVehicleForm.do", "_blank", "noopener,noreferrer");
   }
 
   const watched = useMemo(
