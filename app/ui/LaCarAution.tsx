@@ -97,7 +97,7 @@ function assessRisk(vehicle: Vehicle): RiskResult {
     return { status: "high", dmvFee, reasons };
   }
 
-  const isJapanese = JAPANESE_BRANDS.some((b) => makeUpper.includes(b));
+  const isJapanese = JAPANESE_BRANDS.some((b) => b.startsWith(makeUpper) || makeUpper.startsWith(b));
   if (isJapanese && vehicle.year >= 2008 && dmvFee < 500) {
     return { status: "clean", dmvFee, reasons: [] };
   }
