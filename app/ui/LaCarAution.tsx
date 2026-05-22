@@ -16,7 +16,7 @@ import {
   Sun,
   TrendingUp,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
 
 type TabId = "dashboard" | "scraper" | "history" | "dmv" | "watchlist";
@@ -26,9 +26,7 @@ type Vehicle = {
   make: string;
   model: string;
   vin: string;
-  division: "Central" | "Hollywood" | "Northeast" | "Southwest" | "Valley";
-  status: string;
-  estimate: string;
+  division: string;
 };
 
 const tabs: Array<{ id: TabId; label: string }> = [
@@ -54,65 +52,7 @@ const tabs: Array<{ id: TabId; label: string }> = [
   },
 ];
 
-const vehicles: Vehicle[] = [
-  {
-    year: 2014,
-    make: "Toyota",
-    model: "Camry SE",
-    vin: "4T1BF1FK8EU345921",
-    division: "Central",
-    status: "Lien Sale Ready",
-    estimate: "$4,900",
-  },
-  {
-    year: 2018,
-    make: "Honda",
-    model: "Civic LX",
-    vin: "19XFC2F59JE208114",
-    division: "Hollywood",
-    status: "Photo Review",
-    estimate: "$7,800",
-  },
-  {
-    year: 2012,
-    make: "Ford",
-    model: "F-150 XLT",
-    vin: "1FTFW1ET3CFA77102",
-    division: "Northeast",
-    status: "High Fees",
-    estimate: "$6,250",
-  },
-  {
-    year: 2016,
-    make: "Nissan",
-    model: "Altima S",
-    vin: "1N4AL3AP7GC226415",
-    division: "Southwest",
-    status: "Clean Candidate",
-    estimate: "$5,600",
-  },
-  {
-    year: 2020,
-    make: "Chevrolet",
-    model: "Malibu LT",
-    vin: "1G1ZD5ST7LF058331",
-    division: "Valley",
-    status: "Watchlist Match",
-    estimate: "$9,400",
-  },
-  {
-    year: 2009,
-    make: "Lexus",
-    model: "RX 350",
-    vin: "2T2HK31U49C109772",
-    division: "Central",
-    status: "DMV Risk",
-    estimate: "$3,700",
-  },
-];
-
 const volumePoints = [78, 92, 88, 111, 126, 119, 142, 154];
-const divisions = ["All Divisions", "Central", "Hollywood", "Northeast", "Southwest", "Valley"];
 
 function maskVin(vin: string) {
   return `${vin.slice(0, 4)} ••••••••• ${vin.slice(-4)}`;
@@ -130,6 +70,45 @@ export default function LaCarAution() {
   const [vinInput, setVinInput] = useState("1FTFW1ET3CFA77102");
   const [monthsLate, setMonthsLate] = useState(8);
   const [baseFee, setBaseFee] = useState(276);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [isLoadingVehicles, setIsLoadingVehicles] = useState(true);
+  const [scrapeError, setScrapeError] = useState("");
+
+  useEffect(() => {
+    let isMounted = true;
+
+    async function loadVehicles() {
+      try {
+        setIsLoadingVehicles(true);
+        setScrapeError("");
+
+        const response = await fetch("/api/scrape", { cache: "no-store" });
+        if (!response.ok) {
+          throw new Error("Unable to load OPG vehicles.");
+        }
+
+        const payload: Vehicle[] = await response.json();
+        if (isMounted) {
+          setVehicles(Array.isArray(payload) ? payload : []);
+        }
+      } catch {
+        if (isMounted) {
+          setVehicles([]);
+          setScrapeError("Unable to load live OPG vehicles.");
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoadingVehicles(false);
+        }
+      }
+    }
+
+    loadVehicles();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const filteredVehicles = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -143,7 +122,33 @@ export default function LaCarAution() {
 
       return matchesQuery && matchesDivision;
     });
-  }, [division, query]);
+  }, [division, query, vehicles]);
+
+  const divisions = useMemo(
+    () => [
+      "All Divisions",
+      ...Array.from(new Set(vehicles.map((vehicle) => vehicle.division)))
+        .filter(Boolean)
+        .sort(),
+    ],
+    [vehicles],
+  );
+
+  const averageYear = useMemo(() => {
+    const validYears = vehicles
+      .map((vehicle) => vehicle.year)
+      .filter((year) => year > 0);
+
+    if (validYears.length === 0) {
+      return "N/A";
+    }
+
+    return String(
+      Math.round(
+        validYears.reduce((total, year) => total + year, 0) / validYears.length,
+      ),
+    );
+  }, [vehicles]);
 
   const penalty = Math.round(baseFee * Math.min(monthsLate, 24) * 0.035);
   const transfer = 15;
@@ -191,12 +196,17 @@ export default function LaCarAution() {
           </nav>
         </header>
 
-        {activeTab === "dashboard" && <DashboardTab />}
+        {activeTab === "dashboard" && (
+          <DashboardTab averageYear={averageYear} vehicleCount={vehicles.length} />
+        )}
         {activeTab === "scraper" && (
           <VehicleScraperTab
             division={division}
+            divisions={divisions}
             filteredVehicles={filteredVehicles}
+            isLoadingVehicles={isLoadingVehicles}
             query={query}
+            scrapeError={scrapeError}
             setDivision={setDivision}
             setQuery={setQuery}
           />
@@ -215,7 +225,7 @@ export default function LaCarAution() {
             transfer={transfer}
           />
         )}
-        {activeTab === "watchlist" && <WatchlistTab />}
+        {activeTab === "watchlist" && <WatchlistTab vehicles={vehicles} />}
       </div>
     </main>
   );
@@ -241,20 +251,26 @@ function ThemeToggle() {
   );
 }
 
-function DashboardTab() {
+function DashboardTab({
+  averageYear,
+  vehicleCount,
+}: {
+  averageYear: string;
+  vehicleCount: number;
+}) {
   return (
     <section className="grid gap-6">
       <div className="grid gap-5 md:grid-cols-3">
         <KpiCard
           icon={<Car size={22} />}
           label="Total Live OPG Vehicles"
-          value="427 Vehicles"
+          value={`${vehicleCount} Vehicles`}
           note="Across active Los Angeles OPG divisions"
         />
         <KpiCard
           icon={<TrendingUp size={22} />}
           label="Average Year Model"
-          value="2011"
+          value={averageYear}
           note="Weighted by current scraped inventory"
         />
         <KpiCard
@@ -366,14 +382,20 @@ function MiniLineChart() {
 
 function VehicleScraperTab({
   division,
+  divisions,
   filteredVehicles,
+  isLoadingVehicles,
   query,
+  scrapeError,
   setDivision,
   setQuery,
 }: {
   division: string;
+  divisions: string[];
   filteredVehicles: Vehicle[];
+  isLoadingVehicles: boolean;
   query: string;
+  scrapeError: string;
   setDivision: (value: string) => void;
   setQuery: (value: string) => void;
 }) {
@@ -422,9 +444,18 @@ function VehicleScraperTab({
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-            {filteredVehicles.map((vehicle) => (
+            {isLoadingVehicles &&
+              Array.from({ length: 5 }).map((_, index) => (
+                <tr key={index} className="animate-pulse">
+                  <td className="px-6 py-5" colSpan={6}>
+                    <div className="h-10 rounded-2xl bg-slate-100 dark:bg-slate-800" />
+                  </td>
+                </tr>
+              ))}
+
+            {!isLoadingVehicles && filteredVehicles.map((vehicle) => (
               <tr key={vehicle.vin} className="align-middle">
-                <td className="px-6 py-5 font-black">{vehicle.year}</td>
+                <td className="px-6 py-5 font-black">{vehicle.year || "N/A"}</td>
                 <td className="px-6 py-5 font-bold">{vehicle.make}</td>
                 <td className="px-6 py-5 text-slate-600 dark:text-slate-300">
                   {vehicle.model}
@@ -449,12 +480,25 @@ function VehicleScraperTab({
                       <ArrowUpRight size={14} />
                     </a>
                     <span className="text-xs font-bold text-slate-400">
-                      {vehicle.status}
+                      Live OPG
                     </span>
                   </div>
                 </td>
               </tr>
             ))}
+
+            {!isLoadingVehicles && filteredVehicles.length === 0 && (
+              <tr>
+                <td className="px-6 py-12 text-center" colSpan={6}>
+                  <p className="font-black text-slate-700 dark:text-slate-200">
+                    No live OPG vehicles found.
+                  </p>
+                  <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+                    {scrapeError || "Try changing the search or division filter."}
+                  </p>
+                </td>
+              </tr>
+            )}
           </tbody>
         </table>
       </div>
@@ -625,8 +669,19 @@ function FeeRow({ label, value }: { label: string; value: number }) {
   );
 }
 
-function WatchlistTab() {
+function WatchlistTab({ vehicles }: { vehicles: Vehicle[] }) {
   const watched = vehicles.slice(0, 3);
+
+  if (watched.length === 0) {
+    return (
+      <section className="rounded-3xl border border-slate-100 bg-white p-8 text-center shadow-soft dark:border-slate-800 dark:bg-slate-900">
+        <h2 className="text-xl font-black">Watchlist</h2>
+        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
+          Live OPG vehicles will appear here after the scraper returns data.
+        </p>
+      </section>
+    );
+  }
 
   return (
     <section className="grid gap-5 lg:grid-cols-3">
@@ -652,7 +707,7 @@ function WatchlistTab() {
           <div className="mt-6 grid gap-3 text-sm">
             <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-300">
               <CheckCircle2 size={16} />
-              <span className="font-bold">Target appraisal: {vehicle.estimate}</span>
+              <span className="font-bold">Target appraisal: Pending review</span>
             </div>
             <div className="flex items-center gap-2 text-amber-600 dark:text-amber-300">
               <AlertTriangle size={16} />
