@@ -538,7 +538,7 @@ function VehicleScraperTab({
 
       {/* Vehicle Table */}
       <div className="mt-8 overflow-x-auto rounded-3xl border border-slate-100 dark:border-slate-800">
-        <table className="w-full min-w-[1100px] border-collapse text-left text-sm">
+        <table className="w-full min-w-[1200px] border-collapse text-left text-sm">
           <thead className="bg-slate-50 text-xs uppercase tracking-[0.18em] text-slate-400 dark:bg-slate-950">
             <tr>
               <th className="px-6 py-5 font-black">
@@ -550,6 +550,7 @@ function VehicleScraperTab({
                 />
               </th>
               <th className="px-6 py-5 font-black">Risk</th>
+              <th className="px-6 py-5 font-black">Est. DMV Fee</th>
               <th className="px-6 py-5 font-black">
                 <SortHeader
                   active={sortKey === "make"}
@@ -575,7 +576,7 @@ function VehicleScraperTab({
             {isLoadingVehicles &&
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="animate-pulse">
-                  <td className="px-6 py-5" colSpan={7}>
+                  <td className="px-6 py-5" colSpan={8}>
                     <div className="h-10 rounded-2xl bg-slate-100 dark:bg-slate-800" />
                   </td>
                 </tr>
@@ -584,11 +585,20 @@ function VehicleScraperTab({
             {!isLoadingVehicles &&
               sortedVehicles.map((vehicle) => {
                 const risk = assessRisk(vehicle);
+                const feeClass =
+                  risk.status === "high"
+                    ? "font-black text-rose-600 dark:text-rose-400"
+                    : risk.status === "clean"
+                      ? "font-bold text-emerald-600 dark:text-emerald-400"
+                      : "font-bold text-slate-600 dark:text-slate-300";
                 return (
                   <tr key={vehicle.vin} className="align-middle">
                     <td className="px-6 py-5 font-black">{vehicle.year || "N/A"}</td>
                     <td className="px-6 py-5">
                       <RiskBadge risk={risk} />
+                    </td>
+                    <td className="px-6 py-5">
+                      <span className={feeClass}>${risk.dmvFee.toLocaleString()}</span>
                     </td>
                     <td className="px-6 py-5 font-bold">{vehicle.make}</td>
                     <td className="px-6 py-5 text-slate-600 dark:text-slate-300">
@@ -619,7 +629,7 @@ function VehicleScraperTab({
 
             {!isLoadingVehicles && sortedVehicles.length === 0 && (
               <tr>
-                <td className="px-6 py-12 text-center" colSpan={7}>
+                <td className="px-6 py-12 text-center" colSpan={8}>
                   <p className="font-black text-slate-700 dark:text-slate-200">
                     {vehicles.length > 0
                       ? "No vehicles match your active filtering criteria. Try resetting a dropdown option."
@@ -918,10 +928,13 @@ function WatchlistTab({ vehicles }: { vehicles: Vehicle[] }) {
               <AlertTriangle size={16} />
               <span className="font-bold">Review DMV exposure before bid</span>
             </div>
-            <div className="flex items-center gap-2 text-slate-500 dark:text-slate-400">
-              <Clock3 size={16} />
-              <span className="font-bold">
-                Est. DMV: ${computeDmvFee(vehicle.year).toLocaleString()}
+            <div className="flex items-center justify-between rounded-2xl border border-emerald-100 bg-emerald-50 px-4 py-3 dark:border-emerald-500/20 dark:bg-emerald-500/10">
+              <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-300">
+                <Clock3 size={16} />
+                <span className="font-bold">Est. DMV Fee</span>
+              </div>
+              <span className="font-black text-emerald-700 dark:text-emerald-300">
+                ${assessRisk(vehicle).dmvFee.toLocaleString()}
               </span>
             </div>
           </div>
