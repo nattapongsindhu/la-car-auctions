@@ -1,0 +1,14 @@
+# CODEOWNERS — defines who reviews changes to each area of the codebase.
+# GitHub automatically requests reviews from these owners on pull requests.
+
+# Global default — all files require review from the primary maintainer
+* @nattapongsindhu
+
+# CI/CD and security workflows require extra scrutiny
+.github/workflows/ @nattapongsindhu
+.github/dependabot.yml @nattapongsindhu
+SECURITY.md @nattapongsindhu
+
+# Core business logic
+lib/ @nattapongsindhu
+types/ @nattapongsindhu

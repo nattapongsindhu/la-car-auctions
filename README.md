@@ -108,13 +108,36 @@ npm run start
 ```
 app/
 ├── ui/
-│   └── la-car-auctions.tsx   # Main component — all UI, parsing, and risk logic
+│   └── la-car-auctions.tsx   # Main UI component (tabs, layout, state)
 ├── api/
 │   └── scrape/
-│       └── route.ts           # Server-side scrape endpoint (cheerio)
+│       └── route.ts           # Server-side scrape endpoint (cheerio, timeout, structured errors)
+├── providers.tsx              # next-themes ThemeProvider
 ├── layout.tsx                 # Root layout + metadata
 ├── page.tsx                   # Entry point
 └── globals.css                # Tailwind base styles
+types/
+└── vehicle.ts                 # Shared type definitions (Vehicle, RiskResult, SortKey)
+lib/
+├── risk/
+│   └── index.ts               # Risk scoring engine (assessRisk, computeDmvFee)
+├── parsers/
+│   └── index.ts               # HTML + plain-text clipboard parsers
+└── storage/
+    └── vehicleStore.ts        # localStorage abstraction with demo data fallback
+data/
+└── demo-vehicles.json         # Portfolio demo dataset (15 vehicles, mixed risk profiles)
+docs/
+├── security-controls.md       # Data handling model, input safety, dependency governance
+└── runbook.md                 # Operational procedures, troubleshooting guide
+.github/
+├── workflows/
+│   ├── ci.yml                 # Typecheck + audit + build on every push/PR
+│   └── codeql.yml             # Weekly TypeScript static analysis
+├── ISSUE_TEMPLATE/            # Bug report + feature request templates
+├── CODEOWNERS                 # Review ownership by area
+├── pull_request_template.md
+└── dependabot.yml             # Weekly npm + GitHub Actions updates
 ```
 
 ---

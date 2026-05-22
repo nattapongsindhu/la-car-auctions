@@ -20,31 +20,12 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTheme } from "next-themes";
-import demoVehicles from "../../data/demo-vehicles.json";
+import type { Vehicle, RiskResult, SortKey, SortDirection } from "../../types/vehicle";
+import { assessRisk, computeDmvFee } from "../../lib/risk";
+import { parseOpgData } from "../../lib/parsers";
+import { loadVehicles, saveVehicles } from "../../lib/storage/vehicleStore";
 
 type TabId = "dashboard" | "scraper" | "history" | "dmv" | "watchlist";
-
-type Vehicle = {
-  year: number;
-  make: string;
-  model: string;
-  vin: string;
-  division: string;
-};
-
-type SortKey = "year" | "make" | "model";
-type SortDirection = "asc" | "desc";
-
-type RiskResult = {
-  status: "clean" | "high" | "standard";
-  dmvFee: number;
-  reasons: string[];
-};
-
-const CURRENT_YEAR = 2026;
-const STORAGE_KEY = "opg-vehicles";
-const EUROPEAN_PREFIXES = ["BMW", "MERC", "AUDI", "VOLK", "JAGU", "LAND"];
-const CLEAN_MAKES = ["TOYT", "TOYOTA", "HOND", "HONDA", "NISS", "NISSAN", "MAZD", "MAZDA", "FORD", "CHEV"];
 
 const tabs: Array<{ id: TabId; label: string }> = [
   { id: "dashboard", label: "Dashboard" },
@@ -56,136 +37,11 @@ const tabs: Array<{ id: TabId; label: string }> = [
 
 const volumePoints = [78, 92, 88, 111, 126, 119, 142, 154];
 
-function maskVin(vin: string) {
-  return `${vin.slice(0, 4)} ••••••••• ${vin.slice(-4)}`;
-}
-
 function googleImageLink(vin: string) {
   const query = encodeURIComponent(`${vin} "salvage" OR "odometer" OR "auction"`);
   return `https://www.google.com/search?q=${query}&tbm=isch`;
 }
 
-function normalizeCellText(value: string) {
-  return value.replace(/\s+/g, " ").trim();
-}
-
-function extractCleanVin(value: string) {
-  return (
-    value
-      .toUpperCase()
-      .replace(/[^A-Z0-9]/g, " ")
-      .match(/\b[A-HJ-NPR-Z0-9]{17}\b/)?.[0] ?? ""
-  );
-}
-
-function computeDmvFee(year: number): number {
-  if (!year || isNaN(year)) return 500;
-  if (year >= CURRENT_YEAR) return 200;
-  return (CURRENT_YEAR - year) * 150 + 200;
-}
-
-function assessRisk(vehicle: Vehicle): RiskResult {
-  const dmvFee = computeDmvFee(vehicle.year);
-  const makeUpper = vehicle.make.toUpperCase();
-
-  // State 1: Red — pre-2005, European brand, or DMV est. > $1,500
-  const isOld = vehicle.year > 0 && vehicle.year < 2005;
-  const isEuropean = EUROPEAN_PREFIXES.some((p) => makeUpper.startsWith(p));
-  const feesTooHigh = dmvFee > 1500;
-
-  if (isOld || isEuropean || feesTooHigh) {
-    const reasons: string[] = [];
-    if (isOld) reasons.push(`Pre-2005 (${vehicle.year})`);
-    if (isEuropean) reasons.push("European brand");
-    if (feesTooHigh) reasons.push(`Est. DMV $${dmvFee.toLocaleString()}`);
-    return { status: "high", dmvFee, reasons };
-  }
-
-  // State 2: Green — reliable everyday make, year >= 2012, DMV < $1,000
-  const isCleanMake = CLEAN_MAKES.some(
-    (m) => makeUpper === m || makeUpper.startsWith(m) || m.startsWith(makeUpper),
-  );
-  if (isCleanMake && vehicle.year >= 2012 && dmvFee < 1000) {
-    return { status: "clean", dmvFee, reasons: [] };
-  }
-
-  // State 3: Grey — standard inspection
-  return { status: "standard", dmvFee, reasons: [] };
-}
-
-function parseOpgPlainText(source: string): Vehicle[] {
-  const vehicles = new Map<string, Vehicle>();
-
-  for (const rawLine of source.split("\n")) {
-    try {
-      const line = rawLine.replace(/[\t\r]+/g, " ").replace(/\s{2,}/g, " ").trim();
-      if (!line) continue;
-
-      const vinMatch = line.match(/[A-HJ-NPR-Z0-9]{17}/i);
-      if (!vinMatch) continue;
-      const vin = vinMatch[0].toUpperCase();
-
-      const vinIdx = line.indexOf(vinMatch[0]);
-      const before = line.slice(0, vinIdx).trim();
-      const after = line.slice(vinIdx + vinMatch[0].length).trim();
-
-      const beforeWords = before.split(/\s+/).filter(Boolean);
-      if (beforeWords.length < 2) continue;
-
-      const make = beforeWords[0];
-      const model = beforeWords[1];
-      const yearMatch = before.match(/\b(19\d{2}|20\d{2})\b/);
-      const year = yearMatch ? parseInt(yearMatch[0], 10) : 0;
-
-      const afterNoDate = after.replace(/\s*\d{1,2}\/\d{1,2}\/\d{4}.*$/, "").trim();
-      const addressMatch = afterNoDate.match(/^(.*?)\s+\d{2,5}\s+[A-Za-z]/);
-      const division = addressMatch
-        ? addressMatch[1].trim()
-        : afterNoDate.split(/\s+/).slice(0, 4).join(" ").trim();
-
-      if (!vin || !make || !model) continue;
-      vehicles.set(vin, { year, make, model, vin, division: division || "Unknown" });
-    } catch {
-      continue;
-    }
-  }
-
-  return Array.from(vehicles.values());
-}
-
-function parseOpgData(source: string): Vehicle[] {
-  return /<tr|<td/i.test(source)
-    ? parseOpgHtmlTable(source)
-    : parseOpgPlainText(source);
-}
-
-function parseOpgHtmlTable(source: string): Vehicle[] {
-  if (typeof window === "undefined") return [];
-  const normalized = source.trim();
-  const wrapped = /<table[\s>]/i.test(normalized)
-    ? normalized
-    : `<table>${normalized}</table>`;
-  const doc = new DOMParser().parseFromString(wrapped, "text/html");
-  const rows = Array.from(doc.querySelectorAll("tr"));
-  const vehicles = new Map<string, Vehicle>();
-
-  for (const row of rows) {
-    const cells = Array.from(row.querySelectorAll("td"));
-    if (cells.length < 7) continue;
-
-    const make = normalizeCellText(cells[0]?.textContent ?? "");
-    const model = normalizeCellText(cells[1]?.textContent ?? "");
-    const year = parseInt(normalizeCellText(cells[4]?.textContent ?? ""), 10) || 0;
-    const vin = extractCleanVin(cells[5]?.textContent ?? "");
-    const division = normalizeCellText(cells[6]?.textContent ?? "") || "Unknown";
-
-    if (!vin || !make || !model) continue;
-
-    vehicles.set(vin, { year, make, model, vin, division });
-  }
-
-  return Array.from(vehicles.values());
-}
 
 export default function LaCarAution() {
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
@@ -197,23 +53,8 @@ export default function LaCarAution() {
   const [scrapeError, setScrapeError] = useState("");
 
   useEffect(() => {
-    if (typeof window === "undefined") {
-      setIsLoadingVehicles(false);
-      return;
-    }
-    try {
-      const cached = localStorage.getItem(STORAGE_KEY);
-      if (cached) {
-        const parsed: unknown = JSON.parse(cached);
-        if (Array.isArray(parsed)) setVehicles(parsed as Vehicle[]);
-      } else {
-        setVehicles(demoVehicles as Vehicle[]);
-      }
-    } catch {
-      setVehicles(demoVehicles as Vehicle[]);
-    } finally {
-      setIsLoadingVehicles(false);
-    }
+    setVehicles(loadVehicles());
+    setIsLoadingVehicles(false);
   }, []);
 
   const averageYear = useMemo(() => {
@@ -559,13 +400,7 @@ function VehicleScraperTab({
     setYearFilter("All Years");
     setMakeFilter("All Makes");
     setDivisionFilter("All Divisions");
-    if (typeof window !== "undefined") {
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-      } catch {
-        /* ignore storage errors */
-      }
-    }
+    saveVehicles(parsed);
     setSyncMessage(
       parsed.length > 0
         ? `Synchronized ${parsed.length} vehicles successfully.`
@@ -591,8 +426,8 @@ function VehicleScraperTab({
             <h2 className="text-xl font-black">OPG Live HTML Ingestor</h2>
             <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500 dark:text-slate-400">
               Copy the raw auction table HTML from the OPG &quot;Next Week Auctions&quot; page and
-              paste it below. Click Synchronize to parse, analyze, and cache all vehicles
-              instantly—bypassing reCAPTCHA via client-side ingestion.
+              paste it below. Click Synchronize to parse, risk-score, and cache all vehicles
+              instantly via client-side processing.
             </p>
           </div>
           <button
