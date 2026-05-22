@@ -152,6 +152,7 @@ function parseOpgData(source: string): Vehicle[] {
 }
 
 function parseOpgHtmlTable(source: string): Vehicle[] {
+  if (typeof window === "undefined") return [];
   const normalized = source.trim();
   const wrapped = /<table[\s>]/i.test(normalized)
     ? normalized
@@ -188,6 +189,10 @@ export default function LaCarAution() {
   const [scrapeError, setScrapeError] = useState("");
 
   useEffect(() => {
+    if (typeof window === "undefined") {
+      setIsLoadingVehicles(false);
+      return;
+    }
     try {
       const cached = localStorage.getItem(STORAGE_KEY);
       if (cached) {
@@ -520,10 +525,12 @@ function VehicleScraperTab({
     setYearFilter("All Years");
     setMakeFilter("All Makes");
     setDivisionFilter("All Divisions");
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-    } catch {
-      /* ignore storage errors */
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+      } catch {
+        /* ignore storage errors */
+      }
     }
     setSyncMessage(
       parsed.length > 0
