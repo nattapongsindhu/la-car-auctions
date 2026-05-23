@@ -76,8 +76,40 @@ function getFullMakeName(make: string): string {
   return MAKE_ABBREVIATIONS[upper] ?? make;
 }
 
+const MODEL_ABBREVIATIONS: Record<string, string> = {
+  ALT: "Altima",
+  BRO: "Bronco",
+  SNA: "Sienna",
+  SLV: "Silverado",
+  CAM: "Camaro",
+  MZ3: "Mazda3",
+  CRV: "CR-V",
+  RAV: "RAV4",
+  COR: "Corolla",
+  ACC: "Accord",
+  CIV: "Civic",
+  CAM4: "Camry",
+  TAC: "Tacoma",
+  TUN: "Tundra",
+  F15: "F-150",
+  MAL: "Malibu",
+  IMP: "Impala",
+  EQU: "Equinox",
+  TRX: "Traverse",
+  UNKN: "",
+  UNK: "",
+  UNKNOWN: "",
+};
+
+function getFullModelName(model: string): string {
+  const upper = model.toUpperCase().trim();
+  if (upper in MODEL_ABBREVIATIONS) return MODEL_ABBREVIATIONS[upper];
+  return model;
+}
+
 function photoSearchLink(year: number, make: string, model: string, vin: string) {
-  const q = encodeURIComponent(`${year} ${getFullMakeName(make)} ${model} ${vin}`);
+  const parts = [String(year), getFullMakeName(make), getFullModelName(model), vin].filter(Boolean);
+  const q = encodeURIComponent(parts.join(" "));
   return `https://www.google.com/search?q=${q}`;
 }
 
