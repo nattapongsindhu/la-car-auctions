@@ -166,7 +166,7 @@ export default function LaCarAution() {
                 LA Car Auctions
               </h1>
               <p className="mt-4 max-w-2xl text-base leading-7 text-slate-500 dark:text-slate-400">
-                Official LA Car Auctions Platform
+                Vehicle Auctions Platform
               </p>
               <a
                 href="http://opgla.com/Auctions"
