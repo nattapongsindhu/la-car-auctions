@@ -69,6 +69,9 @@ const MAKE_ABBREVIATIONS: Record<string, string> = {
   PONT: "Pontiac",
   PORS: "Porsche",
   VOLV: "Volvo",
+  SUZU: "Suzuki",
+  LNDR: "Land Rover",
+  ROVR: "Land Rover",
 };
 
 function getFullMakeName(make: string): string {
@@ -789,7 +792,7 @@ function VehicleScraperTab({
                     <td className="px-3 py-3">
                       <span className={feeClass}>${risk.dmvFee.toLocaleString()}</span>
                     </td>
-                    <td className="px-3 py-3 font-bold">{vehicle.make}</td>
+                    <td className="px-3 py-3 font-bold">{getFullMakeName(vehicle.make).toUpperCase()}</td>
                     <td className="px-3 py-3 text-slate-600 dark:text-slate-300">
                       {getFullModelName(vehicle.model) || "-"}
                     </td>
@@ -1125,7 +1128,7 @@ function WatchlistTab({ vehicles }: { vehicles: Vehicle[] }) {
             </span>
           </div>
           <h2 className="text-xl font-black">
-            {vehicle.year} {vehicle.make} {getFullModelName(vehicle.model) || "Unknown"}
+            {vehicle.year} {getFullMakeName(vehicle.make).toUpperCase()} {getFullModelName(vehicle.model) || "Unknown"}
           </h2>
           <p className="mt-2 font-mono text-xs font-bold text-slate-400">{vehicle.vin}</p>
           <div className="mt-6 grid gap-3 text-sm">
