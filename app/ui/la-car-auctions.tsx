@@ -149,13 +149,10 @@ const MODEL_ABBREVIATIONS: Record<string, string> = {
   SOR: "Sorento",
   // Chevrolet
   CRZ: "Cruze",
-  TRV: "Traverse",
   // GMC
   TRN: "Terrain",
   // Ford
   FIE: "Fiesta",
-  // Hyundai
-  ELN: "Elantra",
   // Dodge / Chrysler
   CVN: "Caravan",
   DAR: "Dart",
@@ -180,7 +177,6 @@ const MODEL_ABBREVIATIONS: Record<string, string> = {
   // Yamaha / Motorcycle
   CYL: "Motorcycle / Scooter",
   // Chevrolet extras
-  CLD: "Colorado",
   VAN: "Express Van",
   AST: "Astro",
   // Jeep
@@ -193,7 +189,6 @@ const MODEL_ABBREVIATIONS: Record<string, string> = {
   TCN: "Transit Connect",
   F45: "F-450",
   FSY: "Freestar",
-  EPD: "Escape",
   TAU: "Taurus",
   EC3: "Econoline Club Wagon",
   // Toyota extras
