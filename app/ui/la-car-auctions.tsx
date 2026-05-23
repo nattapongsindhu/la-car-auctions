@@ -77,25 +77,70 @@ function getFullMakeName(make: string): string {
 }
 
 const MODEL_ABBREVIATIONS: Record<string, string> = {
-  ALT: "Altima",
-  BRO: "Bronco",
-  SNA: "Sienna",
-  SLV: "Silverado",
-  CAM: "Camaro",
-  MZ3: "Mazda3",
-  CRV: "CR-V",
-  RAV: "RAV4",
-  COR: "Corolla",
-  ACC: "Accord",
-  CIV: "Civic",
+  // Toyota
   CAM4: "Camry",
+  COR: "Corolla",
   TAC: "Tacoma",
   TUN: "Tundra",
+  RAV: "RAV4",
+  SNA: "Sienna",
+  PRI: "Prius",
+  HGH: "Highlander",
+  MIR: "Mirai",
+  SEQU: "Sequoia",
+  VEN: "Venza",
+  FJ: "FJ Cruiser",
+  LANDCRU: "Land Cruiser",
+  YARIS: "Yaris",
+  // Ford
+  BRO: "Bronco",
   F15: "F-150",
+  MUS: "Mustang",
+  EXP: "Explorer",
+  EXC: "Expedition",
+  RNG: "Ranger",
+  ESC: "Escape",
+  EDG: "Edge",
+  FUS: "Fusion",
+  // Chevrolet / GM
+  SLV: "Silverado",
   MAL: "Malibu",
   IMP: "Impala",
   EQU: "Equinox",
   TRX: "Traverse",
+  TAH: "Tahoe",
+  SUB: "Suburban",
+  COL: "Colorado",
+  BLA: "Blazer",
+  CAM: "Camaro",
+  // Honda
+  CRV: "CR-V",
+  ACC: "Accord",
+  CIV: "Civic",
+  ODY: "Odyssey",
+  PIL: "Pilot",
+  // Nissan
+  ALT: "Altima",
+  MAX: "Maxima",
+  FRO: "Frontier",
+  PAT: "Pathfinder",
+  SEN: "Sentra",
+  // Mazda
+  MZ3: "Mazda3",
+  MZ6: "Mazda6",
+  CX5: "CX-5",
+  CX9: "CX-9",
+  // Dodge / RAM
+  DUR: "Durango",
+  CHA: "Challenger",
+  CHG: "Charger",
+  // Hyundai / Kia
+  SON: "Sonata",
+  ELA: "Elantra",
+  TUC: "Tucson",
+  OPT: "Optima",
+  SOR: "Sorento",
+  // Unknown / blank
   UNKN: "",
   UNK: "",
   UNKNOWN: "",
@@ -496,6 +541,23 @@ function VehicleScraperTab({
     );
   }
 
+  const riskCounts = useMemo(() => {
+    let clean = 0, standard = 0, high = 0;
+    for (const v of filteredVehicles) {
+      const s = assessRisk(v).status;
+      if (s === "clean") clean++;
+      else if (s === "high") high++;
+      else standard++;
+    }
+    return { clean, standard, high };
+  }, [filteredVehicles]);
+
+  function handleClearData() {
+    saveVehicles([]);
+    setVehicles([]);
+    setSyncMessage("");
+  }
+
   function handleSort(next: SortKey) {
     if (sortKey === next) {
       setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
@@ -518,13 +580,22 @@ function VehicleScraperTab({
               instantly via client-side processing.
             </p>
           </div>
-          <button
-            type="button"
-            onClick={synchronizeLiveProductionData}
-            className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-blue-600 px-5 text-sm font-black text-white shadow-sm transition hover:bg-blue-700"
-          >
-            Synchronize Live Production Data
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={synchronizeLiveProductionData}
+              className="inline-flex min-h-12 items-center justify-center rounded-2xl bg-blue-600 px-5 text-sm font-black text-white shadow-sm transition hover:bg-blue-700"
+            >
+              Synchronize Live Production Data
+            </button>
+            <button
+              type="button"
+              onClick={handleClearData}
+              className="inline-flex min-h-12 items-center justify-center rounded-2xl border border-rose-200 bg-white px-4 text-sm font-black text-rose-600 shadow-sm transition hover:bg-rose-50 dark:border-rose-500/30 dark:bg-slate-900 dark:text-rose-400 dark:hover:bg-rose-500/10"
+            >
+              🧹 Clear Data
+            </button>
+          </div>
         </div>
         <textarea
           value={htmlSource}
@@ -633,8 +704,27 @@ function VehicleScraperTab({
         </div>
       </div>
 
+      {/* Risk Summary Strip */}
+      <div className="mt-5 flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2 rounded-2xl bg-emerald-50 px-4 py-2 dark:bg-emerald-500/10">
+          <span className="text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">🟢 Clean</span>
+          <span className="text-lg font-black text-emerald-700 dark:text-emerald-300">{riskCounts.clean}</span>
+        </div>
+        <div className="flex items-center gap-2 rounded-2xl bg-slate-100 px-4 py-2 dark:bg-slate-800">
+          <span className="text-[10px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">⚪ Standard</span>
+          <span className="text-lg font-black text-slate-700 dark:text-slate-200">{riskCounts.standard}</span>
+        </div>
+        <div className="flex items-center gap-2 rounded-2xl bg-rose-50 px-4 py-2 dark:bg-rose-500/10">
+          <span className="text-[10px] font-black uppercase tracking-wider text-rose-600 dark:text-rose-400">🔴 High Risk</span>
+          <span className="text-lg font-black text-rose-700 dark:text-rose-300">{riskCounts.high}</span>
+        </div>
+        <span className="ml-auto text-xs text-slate-400 dark:text-slate-500">
+          {filteredVehicles.length} of {vehicles.length} vehicles
+        </span>
+      </div>
+
       {/* Vehicle Table */}
-      <div className="mt-8 rounded-3xl border border-slate-100 dark:border-slate-800">
+      <div className="mt-4 rounded-3xl border border-slate-100 dark:border-slate-800">
         <table className="w-full table-auto border-collapse text-left text-xs">
           <thead className="bg-slate-50 text-[10px] uppercase tracking-wider text-slate-400 dark:bg-slate-950">
             <tr>
