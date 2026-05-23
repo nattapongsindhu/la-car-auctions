@@ -686,7 +686,7 @@ function VehicleScraperTab({
                           href={photoSearchLink(vehicle.year, vehicle.make, vehicle.model, vehicle.vin)}
                           target="_blank"
                           rel="noreferrer"
-                          className="rounded bg-[#b0a26f] px-1.5 py-0.5 text-[10px] font-medium text-zinc-900 transition hover:bg-[#9a8c5e]"
+                          className="rounded bg-yellow-500 px-1.5 py-0.5 text-[10px] font-black text-slate-900 transition hover:bg-yellow-600"
                         >
                           Photos
                         </a>
@@ -1033,7 +1033,7 @@ function WatchlistTab({ vehicles }: { vehicles: Vehicle[] }) {
               href={photoSearchLink(vehicle.year, vehicle.make, vehicle.model, vehicle.vin)}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center justify-center gap-1 rounded-2xl bg-[#b0a26f] py-3 text-xs font-medium text-zinc-900 transition hover:bg-[#9a8c5e]"
+              className="inline-flex items-center justify-center gap-1 rounded-2xl bg-yellow-500 py-3 text-xs font-black text-slate-900 transition hover:bg-yellow-600"
             >
               Photos
             </a>
