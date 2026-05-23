@@ -176,7 +176,7 @@ const MODEL_ABBREVIATIONS: Record<string, string> = {
   // BMW
   "28I": "3-Series 28i",
   // Yamaha / Motorcycle
-  CYL: "Motorcycle",
+  CYL: "Motorcycle / Scooter",
   // Unknown / blank
   UNKN: "",
   UNK: "",
