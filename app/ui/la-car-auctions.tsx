@@ -75,6 +75,7 @@ const MAKE_ABBREVIATIONS: Record<string, string> = {
   SAA: "Saab",
   YAMA: "Yamaha",
   MNNI: "Mini",
+  GM: "General Motors",
 };
 
 function getFullMakeName(make: string): string {
@@ -177,6 +178,39 @@ const MODEL_ABBREVIATIONS: Record<string, string> = {
   "28I": "3-Series 28i",
   // Yamaha / Motorcycle
   CYL: "Motorcycle / Scooter",
+  // Chevrolet extras
+  CLD: "Colorado",
+  VAN: "Express Van",
+  // Dodge extras
+  AVN: "Avenger",
+  SPI: "Sprinter",
+  TK: "Truck",
+  // Ford extras
+  TCN: "Transit Connect",
+  F45: "F-450",
+  FSY: "Freestar",
+  EPD: "Escape",
+  // Toyota extras
+  PRE: "Previa",
+  COA: "Corolla",
+  CST: "Camry Solara",
+  // Kia extras
+  FRT: "Forte",
+  SPC: "Spectra",
+  // Mercedes extras
+  C30: "C-Class C300",
+  E32: "E-Class E320",
+  // Acura extras
+  INT: "Integra",
+  // Lexus extras
+  RX3: "RX300",
+  "400": "LS400",
+  // Nissan extras
+  TTN: "Titan",
+  // Buick extras
+  LUC: "Lucerne",
+  // Mazda extras
+  MPV: "MPV",
   // Unknown / blank
   UNKN: "",
   UNK: "",
