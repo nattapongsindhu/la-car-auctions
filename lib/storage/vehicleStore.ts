@@ -1,4 +1,5 @@
 import type { Vehicle } from "../../types/vehicle";
+import { vehiclesSchema } from "../validators/vehicle.schema";
 import demoVehicles from "../../data/demo-vehicles.json";
 
 const STORAGE_KEY = "opg-vehicles";
@@ -17,8 +18,8 @@ export function loadVehicles(): Vehicle[] {
   try {
     const cached = localStorage.getItem(STORAGE_KEY);
     if (cached) {
-      const parsed: unknown = JSON.parse(cached);
-      if (Array.isArray(parsed)) return parsed as Vehicle[];
+      const result = vehiclesSchema.safeParse(JSON.parse(cached));
+      if (result.success) return result.data as Vehicle[];
     }
     return demoVehicles as Vehicle[];
   } catch {

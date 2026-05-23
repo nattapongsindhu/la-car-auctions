@@ -191,6 +191,14 @@ const FETCH_TIMEOUT_MS = 8_000;
 const MAX_RESPONSE_BYTES = 2_000_000;
 
 export async function GET(request: NextRequest) {
+  // Kill switch — set OPG_SCRAPE_ENABLED=true in environment to enable
+  if (process.env.OPG_SCRAPE_ENABLED !== "true") {
+    return NextResponse.json(
+      { ok: false, error: "SCRAPE_DISABLED", vehicles: [] },
+      { status: 403 },
+    );
+  }
+
   // Rate limiting — 20 requests per minute per IP
   const ip =
     request.headers.get("x-forwarded-for")?.split(",")[0].trim() ?? "127.0.0.1";
