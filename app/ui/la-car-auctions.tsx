@@ -251,6 +251,14 @@ function displayAuctionDate(date: string | undefined): string {
   return `${month.padStart(2, "0")}/${day.padStart(2, "0")}/${year}`;
 }
 
+function auctionDateTimestamp(date: string): number {
+  const match = date.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
+  if (!match) return Number.MAX_SAFE_INTEGER;
+
+  const [, month, day, year] = match;
+  return new Date(Number(year), Number(month) - 1, Number(day)).getTime();
+}
+
 
 export default function LaCarAution() {
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
@@ -539,6 +547,7 @@ function VehicleScraperTab({
   const [yearFilter, setYearFilter] = useState("All Years");
   const [makeFilter, setMakeFilter] = useState("All Makes");
   const [divisionFilter, setDivisionFilter] = useState("All Divisions");
+  const [dateFilter, setDateFilter] = useState("all");
   const [sortKey, setSortKey] = useState<SortKey>("year");
   const [sortDirection, setSortDirection] = useState<SortDirection>("desc");
   const [hideHighRisk, setHideHighRisk] = useState(false);
@@ -586,6 +595,17 @@ function VehicleScraperTab({
       ),
     [vehicles],
   );
+  const auctionDates = useMemo(
+    () =>
+      Array.from(
+        new Set(
+          vehicles
+            .map((v) => displayAuctionDate(v.auctionDate))
+            .filter((date) => date !== "-"),
+        ),
+      ).sort((a, b) => auctionDateTimestamp(a) - auctionDateTimestamp(b)),
+    [vehicles],
+  );
 
   const filteredVehicles = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -600,9 +620,10 @@ function VehicleScraperTab({
       const matchYear = yearFilter === "All Years" || car.year >= Number(yearFilter);
       const matchMake = makeFilter === "All Makes" || car.make === makeFilter;
       const matchDivision = divisionFilter === "All Divisions" || car.division === divisionFilter;
-      return matchSearch && matchYear && matchMake && matchDivision;
+      const matchDate = dateFilter === "all" || displayAuctionDate(car.auctionDate) === dateFilter;
+      return matchSearch && matchYear && matchMake && matchDivision && matchDate;
     });
-  }, [divisionFilter, hideHighRisk, makeFilter, query, riskFilter, vehicles, yearFilter]);
+  }, [dateFilter, divisionFilter, hideHighRisk, makeFilter, query, riskFilter, vehicles, yearFilter]);
 
   const sortedVehicles = useMemo(() => {
     return [...filteredVehicles].sort((a, b) => {
@@ -618,6 +639,7 @@ function VehicleScraperTab({
     setYearFilter("All Years");
     setMakeFilter("All Makes");
     setDivisionFilter("All Divisions");
+    setDateFilter("all");
     saveVehicles(parsed);
     setSyncMessage(
       parsed.length > 0
@@ -640,6 +662,7 @@ function VehicleScraperTab({
   function handleClearData() {
     saveVehicles([]);
     setVehicles([]);
+    setDateFilter("all");
     setSyncMessage("");
   }
 
@@ -703,7 +726,7 @@ function VehicleScraperTab({
 
       {/* Filter Bar */}
       <div className="rounded-3xl border border-slate-100 bg-slate-50/80 p-5 dark:border-slate-800 dark:bg-slate-950/70">
-        <div className="grid gap-3 lg:grid-cols-[minmax(220px,1.3fr)_minmax(160px,0.85fr)_minmax(150px,0.75fr)_minmax(190px,0.9fr)_minmax(190px,0.9fr)]">
+        <div className="grid gap-3 lg:grid-cols-[minmax(220px,1.3fr)_minmax(160px,0.85fr)_minmax(150px,0.75fr)_minmax(190px,0.9fr)_minmax(160px,0.8fr)_minmax(190px,0.9fr)]">
           <label className="flex min-h-14 items-center gap-3 rounded-2xl border border-slate-100 bg-white px-4 dark:border-slate-800 dark:bg-slate-900">
             <Search size={18} className="text-slate-400" />
             <input
@@ -750,6 +773,18 @@ function VehicleScraperTab({
             <option>All Divisions</option>
             {divisions.map((d) => (
               <option key={d}>{d}</option>
+            ))}
+          </select>
+          <select
+            value={dateFilter}
+            onChange={(e) => setDateFilter(e.target.value)}
+            className="min-h-14 rounded-2xl border border-slate-100 bg-white px-4 text-sm font-bold outline-none dark:border-slate-800 dark:bg-slate-900"
+          >
+            <option value="all">All Dates</option>
+            {auctionDates.map((date) => (
+              <option key={date} value={date}>
+                {date}
+              </option>
             ))}
           </select>
           <select
