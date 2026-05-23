@@ -791,7 +791,7 @@ function VehicleScraperTab({
                     </td>
                     <td className="px-3 py-3 font-bold">{vehicle.make}</td>
                     <td className="px-3 py-3 text-slate-600 dark:text-slate-300">
-                      {vehicle.model}
+                      {getFullModelName(vehicle.model) || "-"}
                     </td>
                     <td className="px-3 py-3 font-mono font-bold text-slate-500">
                       {vehicle.vin}
@@ -1125,7 +1125,7 @@ function WatchlistTab({ vehicles }: { vehicles: Vehicle[] }) {
             </span>
           </div>
           <h2 className="text-xl font-black">
-            {vehicle.year} {vehicle.make} {vehicle.model}
+            {vehicle.year} {vehicle.make} {getFullModelName(vehicle.model) || "Unknown"}
           </h2>
           <p className="mt-2 font-mono text-xs font-bold text-slate-400">{vehicle.vin}</p>
           <div className="mt-6 grid gap-3 text-sm">
