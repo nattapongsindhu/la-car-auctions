@@ -572,10 +572,19 @@ function VehicleScraperTab({
             onChange={(e) => setMakeFilter(e.target.value)}
             className="min-h-14 rounded-2xl border border-slate-100 bg-white px-4 text-sm font-bold outline-none dark:border-slate-800 dark:bg-slate-900"
           >
-            <option>All Makes</option>
-            {makes.map((m) => (
-              <option key={m}>{m}</option>
-            ))}
+            <option value="All Makes">All Makes</option>
+            {makes
+              .reduce<{ value: string; label: string }[]>((acc, m) => {
+                const label = getFullMakeName(m).toUpperCase();
+                if (!acc.some((x) => x.label === label)) acc.push({ value: m, label });
+                return acc;
+              }, [])
+              .sort((a, b) => a.label.localeCompare(b.label))
+              .map(({ value, label }) => (
+                <option key={value} value={value}>
+                  {label}
+                </option>
+              ))}
           </select>
           <select
             value={divisionFilter}
