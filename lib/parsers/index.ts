@@ -13,6 +13,14 @@ function extractCleanVin(value: string): string {
   );
 }
 
+function formatAuctionDate(value: string): string {
+  const match = value.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
+  if (!match) return "";
+
+  const [, month, day, year] = match;
+  return `${month.padStart(2, "0")}/${day.padStart(2, "0")}/${year}`;
+}
+
 function parseOpgPlainText(source: string): Vehicle[] {
   const vehicles = new Map<string, Vehicle>();
 
@@ -36,6 +44,7 @@ function parseOpgPlainText(source: string): Vehicle[] {
       const model = beforeWords[1];
       const yearMatch = before.match(/\b(19\d{2}|20\d{2})\b/);
       const year = yearMatch ? parseInt(yearMatch[0], 10) : 0;
+      const auctionDate = formatAuctionDate(after);
 
       const afterNoDate = after.replace(/\s*\d{1,2}\/\d{1,2}\/\d{4}.*$/, "").trim();
       const addressMatch = afterNoDate.match(/^(.*?)\s+\d{2,5}\s+[A-Za-z]/);
@@ -44,7 +53,7 @@ function parseOpgPlainText(source: string): Vehicle[] {
         : afterNoDate.split(/\s+/).slice(0, 4).join(" ").trim();
 
       if (!vin || !make || !model) continue;
-      vehicles.set(vin, { year, make, model, vin, division: division || "Unknown" });
+      vehicles.set(vin, { year, make, model, vin, division: division || "Unknown", auctionDate });
     } catch {
       continue;
     }
@@ -72,9 +81,10 @@ function parseOpgHtmlTable(source: string): Vehicle[] {
     const year = parseInt(normalizeCellText(cells[4]?.textContent ?? ""), 10) || 0;
     const vin = extractCleanVin(cells[5]?.textContent ?? "");
     const division = normalizeCellText(cells[6]?.textContent ?? "") || "Unknown";
+    const auctionDate = formatAuctionDate(cells[8]?.textContent ?? "");
 
     if (!vin || !make || !model) continue;
-    vehicles.set(vin, { year, make, model, vin, division });
+    vehicles.set(vin, { year, make, model, vin, division, auctionDate });
   }
 
   return Array.from(vehicles.values());

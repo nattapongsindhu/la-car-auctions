@@ -8,6 +8,7 @@ export const vehicleSchema = z.object({
     message: "Invalid 17-character VIN format",
   }),
   division: z.string().min(1).max(120),
+  auctionDate: z.string().max(20).optional(),
 });
 
 export const vehiclesSchema = z.array(vehicleSchema);

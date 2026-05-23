@@ -4,6 +4,7 @@ export type Vehicle = {
   model: string;
   vin: string;
   division: string;
+  auctionDate?: string;
 };
 
 export type RiskStatus = "clean" | "high" | "standard";

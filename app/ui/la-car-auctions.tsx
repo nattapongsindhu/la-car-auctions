@@ -242,6 +242,15 @@ function shortDivision(div: string): string {
   );
 }
 
+function displayAuctionDate(date: string | undefined): string {
+  if (!date) return "-";
+  const match = date.match(/\b(\d{1,2})\/(\d{1,2})\/(\d{4})\b/);
+  if (!match) return date;
+
+  const [, month, day, year] = match;
+  return `${month.padStart(2, "0")}/${day.padStart(2, "0")}/${year}`;
+}
+
 
 export default function LaCarAution() {
   const [activeTab, setActiveTab] = useState<TabId>("dashboard");
@@ -834,13 +843,14 @@ function VehicleScraperTab({
               <th className="px-3 py-3 font-black">VIN</th>
               <th className="px-3 py-3 font-black">Division</th>
               <th className="px-3 py-3 font-black">Actions</th>
+              <th className="px-3 py-3 font-black">Auction Date</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
             {isLoadingVehicles &&
               Array.from({ length: 5 }).map((_, i) => (
                 <tr key={i} className="animate-pulse">
-                  <td className="px-3 py-3" colSpan={9}>
+                  <td className="px-3 py-3" colSpan={10}>
                     <div className="h-7 rounded-xl bg-slate-100 dark:bg-slate-800" />
                   </td>
                 </tr>
@@ -899,13 +909,16 @@ function VehicleScraperTab({
                         </a>
                       </div>
                     </td>
+                    <td className="px-3 py-3 font-mono font-bold text-slate-500">
+                      {displayAuctionDate(vehicle.auctionDate)}
+                    </td>
                   </tr>
                 );
               })}
 
             {!isLoadingVehicles && sortedVehicles.length === 0 && (
               <tr>
-                <td className="px-6 py-12 text-center" colSpan={9}>
+                <td className="px-6 py-12 text-center" colSpan={10}>
                   <p className="font-black text-slate-700 dark:text-slate-200">
                     {vehicles.length > 0
                       ? "No vehicles match your active filtering criteria. Try resetting a dropdown option."
