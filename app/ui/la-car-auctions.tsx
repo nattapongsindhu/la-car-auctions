@@ -95,7 +95,7 @@ const policeGarages = [
     name: "Kelmark Tow",
     address: "620 E 111th Pl, Los Angeles, CA 90059",
     day: "Thursday",
-    time: "1:00 PM",
+    time: "9:00 AM",
   },
   {
     name: "Keystone Towing",
