@@ -52,13 +52,13 @@ const policeGarages = [
   {
     name: "S & J Wilshire Tow",
     address: "2400 W Washington Blvd, Los Angeles, CA 90018",
-    day: "Tuesday",
+    day: "Wednesday",
     time: "11:00 AM",
   },
   {
     name: "Viertel's Rampart Division",
     address: "2110 S. Burlington Ave, Los Angeles, CA 90007",
-    day: "Wednesday",
+    day: "Tuesday",
     time: "10:00 AM",
   },
   {
@@ -100,7 +100,7 @@ const policeGarages = [
   {
     name: "Keystone Towing",
     address: "7817 Woodley Ave, Van Nuys, CA 91406",
-    day: "Wednesday",
+    day: "Thursday",
     time: "10:00 AM",
   },
   {
